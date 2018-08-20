@@ -4,6 +4,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <InfoStats2/InfoStats2.h>
 #import <CoreLocation/CoreLocation.h>
+#import <MapKit/MapKit.h>
 #import <LocalAuthentication/LocalAuthentication.h>
 #import <CoreTelephony/CTMessageCenter.h>
 #import "MLIMGURUploader/MLIMGURUploader.h"
@@ -78,4 +79,15 @@
 @interface BBBulletin
 @property (nonatomic,copy) NSString *sectionID;
 @property (nonatomic,copy) NSString *message;
+@end
+
+@interface SBAirplaneModeController
+@property(nonatomic, getter=isInAirplaneMode) _Bool inAirplaneMode;
+- (void)setInAirplaneMode:(BOOL)arg1;
+@end
+
+@interface WeatherLocationManager
++ (id)sharedWeatherLocationManager;
+- (void)forceLocationUpdate;
+- (CLLocationCoordinate2D*)lastLocationCoord;
 @end

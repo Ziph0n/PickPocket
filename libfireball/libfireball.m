@@ -177,7 +177,8 @@ void FBAddTwitterShareButton(UIViewController *prefs, UIImage *twitterIcon, NSSt
         case 1:
         {
             if (index == 1)
-                [self dropMeAFollow];
+                //[self dropMeAFollow];
+                [self FBOpenTwitterUsername:@"Ziph0n"];
             break;
         }
             
@@ -268,6 +269,21 @@ void FBAddTwitterShareButton(UIViewController *prefs, UIImage *twitterIcon, NSSt
          else
          NSLog(@"Twitter error, HTTP response: %i", [urlResponse statusCode]);*/
     }];
+}
+
+
+- (void)FBOpenTwitterUsername:(NSString *)username
+{
+    if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"tweetbot:"]])
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"tweetbot:///user_profile/Ziph0n"]];
+    else if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"twitterrific:"]])
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"twitterrific:///profile?screen_name=Ziph0n"]];
+    else if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"tweetings:"]])
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"tweetings:///user?screen_name=Ziph0n"]];
+    else if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"twitter:"]])
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"twitter://user?screen_name=Ziph0n"]];
+    else
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://mobile.twitter.com/Ziph0n"]];
 }
 
 - (void)dealloc

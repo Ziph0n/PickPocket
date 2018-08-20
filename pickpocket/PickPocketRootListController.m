@@ -48,7 +48,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.ziph0n.pickpocket10.plist"];
+    NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.ziph0n.pickpocket11.plist"];
     BOOL passwordEnabled = [[prefs objectForKey:@"passwordEnabled"] boolValue];
     BOOL passwordTouchID = [[prefs objectForKey:@"passwordTouchID"] boolValue];
     NSString *password = [prefs objectForKey:@"password"];
@@ -115,7 +115,7 @@
 }
 
 - (UIAlertController *)getPasswordAlert {
-    NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.ziph0n.pickpocket10.plist"];
+    NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.ziph0n.pickpocket11.plist"];
     NSString *password = [prefs objectForKey:@"password"];
 
     UIAlertController *passwordAlert = [UIAlertController

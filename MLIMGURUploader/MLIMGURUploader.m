@@ -35,6 +35,7 @@
 {
     if (imageData != nil) {
         NSString *urlString = @"https://api.imgur.com/3/upload.json";
+        //NSString *urlString = @"https://api.imgur.com/3/image";
         NSMutableURLRequest *request = [[NSMutableURLRequest alloc] init] ;
         [request setURL:[NSURL URLWithString:urlString]];
         [request setHTTPMethod:@"POST"];
@@ -46,6 +47,7 @@
         NSString *contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary];
         [request addValue:contentType forHTTPHeaderField:@"Content-Type"];
 
+
         // Add client ID as authrorization header
         [request addValue:[NSString stringWithFormat:@"Client-ID %@", clientID] forHTTPHeaderField:@"Authorization"];
 
@@ -56,6 +58,7 @@
         [requestBody appendData:[@"Content-Type: application/octet-stream\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
         [requestBody appendData:[NSData dataWithData:imageData]];
         [requestBody appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+
 
         // Title parameter
         if (title) {
@@ -73,10 +76,12 @@
             [requestBody appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
         }
 
+
         [requestBody appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
 
         [request setHTTPBody:requestBody];
 
+        
         [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *response, NSData *data, NSError *error) {
             if (data != nil) {
                 if (response != nil && error != nil) {

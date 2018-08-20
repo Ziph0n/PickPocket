@@ -2,14 +2,9 @@
 
 #define DEGREES_TO_RADIANS(degrees) ((degrees) / 180.0 * M_PI)
 
-static NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
-#define IMGUR_CLIENT_ID imgurClientIDs[arc4random() % [imgurClientIDs count]]
-
-static void (*original_AudioServicesPlaySystemSound)(int inSystemSoundID);
-
 static HBPreferences *preferences;
 static BOOL enabled;
-static BOOL firstUse;
+static BOOL firstUse = TRUE;
 
 static BOOL protectedShutdownEnabled;
 static NSInteger protectedShutdownType = 1;
@@ -63,7 +58,7 @@ static BOOL hardResetEnabled;
 static BOOL hardResetEmail;
 static BOOL hardResetSMS;
 static BOOL hardResetTestHomeButton = FALSE;
-//static BOOL hardResetTestPowerButton = FALSE;
+static BOOL hardResetTestPowerButton = FALSE;
 static BOOL wantToSendHardResetThings = TRUE;
 static BOOL hardResetAttempted = FALSE;
 static BOOL hardResetScreenshotTest = FALSE;
@@ -110,8 +105,8 @@ static BOOL airplaneModeProgrammaticallyControlled = FALSE;
 static BOOL wantsToDoSIMThings = TRUE;
 static BOOL showingLSFirstTime = TRUE;
 
-static BOOL pageDrawn = nil;
-static NSString *lsButtonColor;
+static NSString *lsButtonBackgroundColor;
+static NSString *lsButtonTextColor;
 static UIView *foundView;
 static UIImageView *userImageView;
 static CALayer *borderLayer;
@@ -123,6 +118,8 @@ static UILabel *callLabel;
 static UIButton *mailButton;
 static UILabel *mailLabel;
 static BOOL lsViewIsShown = FALSE;
+static UIButton *lsButton;
+static BOOL lsButtonDrawn = FALSE;
 
 static AVAudioPlayer *shutdownPlayer;
 static AVAudioPlayer *unlockPlayer;
@@ -240,16 +237,7 @@ static BOOL smsEnableLocation;
 static BOOL smsEnableWifi;
 static BOOL smsDisableAirplane;
 
-static BOOL infoStatstInstalled = FALSE;
-
-static void replaced_AudioServicesPlaySystemSound(int inSystemSoundID) {
-    HBLogDebug(@"replaced_AudioServicesPlaySystemSound / inSystemSoundID = %d", inSystemSoundID);
-    if (inSystemSoundID == 1108) {
-        HBLogDebug(@"shutter sound disabled");
-    } else {
-        original_AudioServicesPlaySystemSound(inSystemSoundID);
-    }
-}
+static CLLocationCoordinate2D currenLocation;
 
 static NSString *getDeviceModel() {
     struct utsname systemInfo;
@@ -320,7 +308,13 @@ static void initializeSIMSpeech() {
     simUtterance.rate = AVSpeechUtteranceDefaultSpeechRate;
 }
 
+static void getDeviceLocation() {
+    WeatherLocationManager *weatherLocationManager = [WeatherLocationManager sharedWeatherLocationManager];
+    [weatherLocationManager forceLocationUpdate];
+}
+
 static void sendEmail(NSString *reason) {
+    getDeviceLocation();
     FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
     NSString *switchIdentifier = nil;
     if (mailEnableCellular) {
@@ -370,33 +364,33 @@ static void sendEmail(NSString *reason) {
 	if (mailFrontPic) {
 		#pragma clang diagnostic push
     	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-		system("camshot -front /var/mobile/Documents/thiefPic.jpg");
+		system("camshot -front /var/mobile/Downloads/thiefPic.jpg");
 		#pragma clang diagnostic pop
-		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefPic.jpg"];
+		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefPic.jpg"];
 		NSData *frontPicData = [NSData dataWithData:UIImagePNGRepresentation(frontPic)];
 	    NSString *base64StringFrontPic = [frontPicData base64EncodedStringWithOptions:0];
 	    [emailBody appendString:[NSString stringWithFormat:@"<p><b>Front Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringFrontPic]];
 		NSFileManager *manager = [NSFileManager defaultManager];
-		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefPic.jpg"] error:nil];
+		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefPic.jpg"] error:nil];
 	}
 
 	if (mailRearPic) {
 		#pragma clang diagnostic push
     	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-		system("camshot -back /var/mobile/Documents/thiefPic.jpg");
+		system("camshot -back /var/mobile/Downloads/thiefPic.jpg");
 		#pragma clang diagnostic pop
-		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefPic.jpg"];
+		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefPic.jpg"];
 		NSData *rearPicData = [NSData dataWithData:UIImagePNGRepresentation(rearPic)];
 	    NSString *base64StringRearPic = [rearPicData base64EncodedStringWithOptions:0];
 		[emailBody appendString:[NSString stringWithFormat:@"<p><b>Rear Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringRearPic]];
 		NSFileManager *manager = [NSFileManager defaultManager];
-		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefPic.jpg"] error:nil];
+		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefPic.jpg"] error:nil];
 	}
 
-	if (mailLocation && infoStatstInstalled) {
+	if (mailLocation) {
 		[emailBody appendString:@"<p><b>Location Details:</b></p>"];
-		CGFloat currentLatitude = [objc_getClass("IS2Location") currentLatitude];
-    	CGFloat currentLongitude = [objc_getClass("IS2Location") currentLongitude];
+		double currentLatitude = currenLocation.latitude;
+    	double currentLongitude = currenLocation.longitude;
 		[emailBody appendString:[NSString stringWithFormat:@"<p>Latitude: %f, Longitude: %f</p>", currentLatitude, currentLongitude]];
 
 		CLLocation *actualLocation = [[CLLocation alloc] initWithLatitude:currentLatitude longitude:currentLongitude];
@@ -435,6 +429,7 @@ static void sendEmail(NSString *reason) {
 }
 
 static void sendSMS(NSString *reason) {
+    getDeviceLocation();
     FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
     NSString *switchIdentifier = nil;
     if (smsEnableCellular) {
@@ -454,8 +449,8 @@ static void sendSMS(NSString *reason) {
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 			airplaneModeProgrammaticallyControlled = FALSE;
 		});
-        switchIdentifier = @"com.a3tweaks.switch.airplane-mode";
-        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+        SBAirplaneModeController *sbAirplaneModeController =  (SBAirplaneModeController *)[objc_getClass("SBAirplaneModeController") sharedInstance];
+        [sbAirplaneModeController setInAirplaneMode:FALSE];
     }
 
     if (UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad || [[[UIDevice currentDevice] model] isEqual:@"iPod touch"]) {
@@ -480,11 +475,15 @@ static void sendSMS(NSString *reason) {
                 HBLogDebug(@"inside smsFrontPic");
                 #pragma clang diagnostic push
             	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        		system("camshot -front /var/mobile/Documents/thiefPic.jpg");
+        		system("camshot -front /var/mobile/Downloads/thiefPic.jpg");
         		#pragma clang diagnostic pop
                 __block NSMutableString *smsFrontPicString = [[NSMutableString alloc] init];
                 [smsFrontPicString appendString:@"This SMS was sent by PickPocket"];
-        		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefPic.jpg"];
+        		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefPic.jpg"];
+
+                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
+                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
+
                 [MLIMGURUploader uploadPhoto:UIImagePNGRepresentation(frontPic) title:@"PickPocket" description:@"" imgurClientID:IMGUR_CLIENT_ID
                     completionBlock:^(NSString *result) {
                         HBLogDebug(@"success: %@", result);
@@ -510,7 +509,7 @@ static void sendSMS(NSString *reason) {
                         }
                         HBLogDebug(@"sms sent");
                         NSFileManager *manager = [NSFileManager defaultManager];
-                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefPic.jpg"] error:nil];
+                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefPic.jpg"] error:nil];
                     }
                     failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
                         HBLogDebug(@"failed");
@@ -532,9 +531,8 @@ static void sendSMS(NSString *reason) {
                         }
                         HBLogDebug(@"sms sent");
                         NSFileManager *manager = [NSFileManager defaultManager];
-                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefPic.jpg"] error:nil];
+                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefPic.jpg"] error:nil];
                     }];
-                HBLogDebug(@"done");
             }
         }
 
@@ -558,11 +556,15 @@ static void sendSMS(NSString *reason) {
             } else {
                 #pragma clang diagnostic push
             	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        		system("camshot -back /var/mobile/Documents/thiefPic.jpg");
+        		system("camshot -back /var/mobile/Downloads/thiefPic.jpg");
         		#pragma clang diagnostic pop
                 __block NSMutableString *smsRearPicString = [[NSMutableString alloc] init];
                 [smsRearPicString appendString:@"This SMS was sent by PickPocket"];
-        		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefPic.jpg"];
+        		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefPic.jpg"];
+
+                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
+                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
+
                 [MLIMGURUploader uploadPhoto:UIImagePNGRepresentation(rearPic) title:@"PickPocket" description:@"" imgurClientID:IMGUR_CLIENT_ID
                     completionBlock:^(NSString *result) {
                         if (result != nil) {
@@ -587,7 +589,7 @@ static void sendSMS(NSString *reason) {
                         }
                         HBLogDebug(@"sms sent");
                         NSFileManager *manager = [NSFileManager defaultManager];
-                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefPic.jpg"] error:nil];            }
+                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefPic.jpg"] error:nil];            }
                     failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
                         [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the rear picture..."]];
                         if (firstPhoneNumber != nil) {
@@ -607,7 +609,7 @@ static void sendSMS(NSString *reason) {
                         }
                         HBLogDebug(@"sms sent");
                         NSFileManager *manager = [NSFileManager defaultManager];
-                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefPic.jpg"] error:nil];
+                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefPic.jpg"] error:nil];
                     }];
             }
         }
@@ -643,10 +645,10 @@ static void sendSMS(NSString *reason) {
             [smsString appendString:[NSString stringWithFormat:@"\n\nBattery Level: %f", currentLevel]];
     	}
 
-        if (smsLocation && infoStatstInstalled) {
+        if (smsLocation) {
             [smsString appendString:[NSString stringWithFormat:@"\n\nLocation Details:"]];
-            CGFloat currentLatitude = [objc_getClass("IS2Location") currentLatitude];
-            CGFloat currentLongitude = [objc_getClass("IS2Location") currentLongitude];
+            double currentLatitude = currenLocation.latitude;
+            double currentLongitude = currenLocation.longitude;
             [smsString appendString:[NSString stringWithFormat:@"\nLatitude: %f", currentLatitude]];
             [smsString appendString:[NSString stringWithFormat:@"\nLongitude: %f", currentLongitude]];
 
@@ -655,11 +657,7 @@ static void sendSMS(NSString *reason) {
             [geoCoder reverseGeocodeLocation:actualLocation completionHandler: ^(NSArray *placemarks, NSError *error) {
                 CLPlacemark *placemark = [placemarks objectAtIndex:0];
                 NSString *locatedAt = [[placemark.addressDictionary valueForKey:@"FormattedAddressLines"] componentsJoinedByString:@", "];
-                if ([[Reachability reachabilityForInternetConnection]currentReachabilityStatus]==NotReachable) {
-                    [smsString appendString:[NSString stringWithFormat:@"\nFailed getting the detailed location: No Internet connection detected..."]];
-                } else {
-                    [smsString appendString:[NSString stringWithFormat:@"\nDetailed Location %@", locatedAt]];
-                }
+                [smsString appendString:[NSString stringWithFormat:@"\nDetailed Location %@", locatedAt]];
                 [smsString appendString:[NSString stringWithFormat:@"\nGoogle Map: http://maps.google.com/maps?q=%f,%f", currentLatitude, currentLongitude]];
 
                 if (firstPhoneNumber != nil) {
@@ -706,12 +704,6 @@ static void sendSMS(NSString *reason) {
     %orig;
     if (enabled) {
         showingLSFirstTime = TRUE;
-    
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSString *pathForFile = @"/Library/MobileSubstrate/DynamicLibraries/InfoStats2.dylib";
-        if ([fileManager fileExistsAtPath:pathForFile]) {     
-            infoStatstInstalled = TRUE;
-        }
     }
 }
 
@@ -730,7 +722,7 @@ static void sendSMS(NSString *reason) {
 
         } else if (type == 101 && force == 1) {
             hardResetTestHomeButton = TRUE;
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                 hardResetTestHomeButton = FALSE;
             });
             if (hardResetAttempted || isInFakeShutdownMode || lockButtonWasHeld) {
@@ -740,6 +732,7 @@ static void sendSMS(NSString *reason) {
             }
 
         } else if (type == 104 && force == 0) {
+            hardResetTestPowerButton = FALSE;
             if (hardResetAttempted || isInFakeShutdownMode || lsViewIsShown) {
                 return nil;
             } else {
@@ -747,6 +740,10 @@ static void sendSMS(NSString *reason) {
             }
 
         } else if (type == 104 && force == 1) {
+            hardResetTestPowerButton = TRUE;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                hardResetTestPowerButton = FALSE;
+            });
             if (hardResetAttempted || isInFakeShutdownMode || lsViewIsShown) {
                 return nil;
             } else {
@@ -761,39 +758,39 @@ static void sendSMS(NSString *reason) {
 }
 
 - (void)powerDownCanceled:(id)arg1 {
-	HBLogDebug(@"Cancel button / arg1 = %@", arg1);
 	%orig;
     [[UIApplication sharedApplication] sendAction:@selector(resignFirstResponder) to:nil from:nil forEvent:nil];
     lockButtonWasHeld = FALSE;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        if (enabled) {
+        if (enabled && protectedShutdownEnabled) {
             if (protectedShutdownType == 1) {
             	if (!shutdownProgramaticallyCanceled) {
             		if (shutdownWrongPasswordEntered == TRUE) {
+                        getDeviceLocation();
             	        shutdownTotalWrongPassword++;
                         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                             if (shutdownSaveFrontPic) {
                                 #pragma clang diagnostic push
                                 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                                system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                                 #pragma clang diagnostic pop
-                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                                 UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                     NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                                 });
                             }
                             if (shutdownSaveRearPic) {
                                 #pragma clang diagnostic push
                                 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                                system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                                 #pragma clang diagnostic pop
-                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                                 UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                     NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                                 });
                             }
                         });
@@ -841,25 +838,25 @@ static void sendSMS(NSString *reason) {
                         if (fakeShutdownWrongPasswordSaveFrontPic) {
                             #pragma clang diagnostic push
                             #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                            system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                            system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                             #pragma clang diagnostic pop
-                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                             });
                         }
                         if (fakeShutdownWrongPasswordSaveRearPic) {
                             #pragma clang diagnostic push
                             #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                            system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                            system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                             #pragma clang diagnostic pop
-                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                             });
                         }
                     });
@@ -981,13 +978,10 @@ static void sendSMS(NSString *reason) {
 
 - (void)powerDown {
     HBLogDebug(@"powerDown");
-    HBLogDebug(@"lockButtonWasHeld = %d", lockButtonWasHeld);
     [[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
     CGFloat currentLevel = (CGFloat)[[UIDevice currentDevice] batteryLevel] * 100;
     if (enabled) {
-        HBLogDebug(@"1");
         if (currentLevel <= 2 && !lockButtonWasHeld) {
-            HBLogDebug(@"2");
             if (isBatteryEmptyFirstTime && automaticShutdownDisabled) {
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                     isBatteryEmptyFirstTime = FALSE;
@@ -1117,25 +1111,25 @@ static void sendSMS(NSString *reason) {
                             if (fakeShutdownSaveFrontPic) {
                                 #pragma clang diagnostic push
                                 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                                system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                                 #pragma clang diagnostic pop
-                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                                 UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                     NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                                 });
                             }
                             if (fakeShutdownSaveRearPic) {
                                 #pragma clang diagnostic push
                                 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                                system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                                 #pragma clang diagnostic pop
-                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                                 UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                     NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                                 });
                             }
                         }
@@ -1173,23 +1167,9 @@ static void sendSMS(NSString *reason) {
 %hook SBHomeHardwareButtonActions
 
 - (void)performLongPressActions {
-    if (enabled) {
-        if (isRinging || hardResetAttempted || isInFakeShutdownMode || lsViewIsShown) {
-        } else {
-            %orig;
-        }
-    } else {
-        %orig;
-    }
-}
-
-%end
-
-%hook SBLockHardwareButtonActions
-
-- (void)performLongPressActions {
-    HBLogDebug(@"performLongPressActions");
-    if (enabled && hardResetTestHomeButton) {
+    if (enabled && hardResetEnabled) {
+        getDeviceLocation();
+        if (hardResetTestPowerButton) {
         HBLogDebug(@"hard reset attempted");
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
             if (hardResetEmail) {
@@ -1270,6 +1250,116 @@ static void sendSMS(NSString *reason) {
         });
         
 
+    } else if (isRinging || hardResetAttempted || isInFakeShutdownMode || lsViewIsShown) {
+        } else {
+            %orig;
+        }
+    } else {
+        %orig;
+    }
+}
+
+%new
+-(void)pickpocketSendNewHardResetMail {
+    HBLogDebug(@"inside pickpocketSendNewHardResetMail");
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sendEmail(@"Scheduled Mail: Hard Reset Aborted! :)");
+    });
+}
+
+%new
+-(void)pickpocketSendNewHardResetSMS {
+    HBLogDebug(@"inside pickpocketSendNewHardResetSMS");
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sendSMS(@"Scheduled SMS: Hard Reset Aborted! :)");
+    });
+}
+
+%end
+
+%hook SBLockHardwareButtonActions
+
+- (void)performLongPressActions {
+    if (enabled && hardResetEnabled && hardResetTestHomeButton) {
+        getDeviceLocation();
+        HBLogDebug(@"hard reset attempted");
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            if (hardResetEmail) {
+                sendEmail(@"Hard Reset Attempted!");
+            }
+            if (hardResetSMS) {
+                sendSMS(@"Hard Reset Attempted!");
+            }
+        });
+        hardResetAttempted = TRUE;
+        isRinging = TRUE;
+
+        [synthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+        [shutdownPlayer stop];
+        [unlockPlayer stop];
+        [remoteActionPlayer stop];
+        [simPlayer stop];
+
+        UIWindow *pickpocketBlackWindow = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 5000, 5000)];
+        pickpocketBlackWindow.windowLevel = UIWindowLevelAlert + 100;
+        pickpocketBlackWindow.hidden = NO;
+        pickpocketBlackWindow.alpha = 1.0;
+        pickpocketBlackWindow.backgroundColor = [UIColor blackColor];
+        [pickpocketBlackWindow _setSecure:YES];
+        [pickpocketBlackWindow makeKeyAndVisible];
+
+        SBBacklightController *backlightControllerObject =  (SBBacklightController *)[objc_getClass("SBBacklightController") sharedInstance];
+        [backlightControllerObject setBacklightFactor:0.0 source:0];
+
+        [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+        [[AVSystemController sharedAVSystemController] setVolumeTo:0.0 forCategory:@"Audio/Video"];
+
+        FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+        NSString *switchIdentifier = nil;
+        if (hardResetEnableDND) {
+            switchIdentifier = @"com.a3tweaks.switch.do-not-disturb";
+            [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+        }
+        if (hardResetEnableLPM) {
+            switchIdentifier = @"com.a3tweaks.switch.low-power";
+            [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+        }
+        if (hardResetDisableRinger) {
+            switchIdentifier = @"com.a3tweaks.switch.ringer";
+            [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+        }
+        if (hardResetDisableVibration) {
+            switchIdentifier = @"com.a3tweaks.switch.vibration";
+            [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+        }
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            wantToSendHardResetThings = TRUE;
+            if (hardResetAttempted) {
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+                    if (hardResetEmail) {
+                        sendEmail(@"Hard Reset Aborted! :)");
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            if (mailRepeat) {
+                                if (mailTimer == nil) {
+                                    mailTimer = [NSTimer scheduledTimerWithTimeInterval:mailEveryXMinutes * 60.0 target:self selector:@selector(pickpocketSendNewHardResetMail) userInfo:nil repeats:YES];
+                                }
+                            }
+                        });
+                    }
+                    if (hardResetSMS) {
+                        sendSMS(@"Hard Reset Aborted! :)");
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            if (smsRepeat) {
+                                if (smsTimer == nil) {
+                                    smsTimer = [NSTimer scheduledTimerWithTimeInterval:mailEveryXMinutes * 60.0 target:self selector:@selector(pickpocketSendNewHardResetSMS) userInfo:nil repeats:YES];
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        });
     } else if (enabled && !lockButtonWasHeld && !hardResetTestHomeButton) {
         lockButtonWasHeld = TRUE;
         if (protectedShutdownEnabled) {
@@ -1364,25 +1454,25 @@ static void sendSMS(NSString *reason) {
                                                 if (shutdownSaveFrontPic) {
                                                     #pragma clang diagnostic push
                                                     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                                    system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                                                    system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                                                     #pragma clang diagnostic pop
-                                                    UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                                                    UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                                                     UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                                                     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                                         NSFileManager *manager = [NSFileManager defaultManager];
-                                                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                                                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                                                     });
                                                 }
                                                 if (shutdownSaveRearPic) {
                                                     #pragma clang diagnostic push
                                                     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                                    system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                                                    system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                                                     #pragma clang diagnostic pop
-                                                    UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                                                    UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                                                     UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                                                     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                                         NSFileManager *manager = [NSFileManager defaultManager];
-                                                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                                                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                                                     });
                                                 }
                                             });
@@ -1430,7 +1520,6 @@ static void sendSMS(NSString *reason) {
                                         %orig;
                                         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                             SpringBoard *springboard = (SpringBoard*)[NSClassFromString(@"SpringBoard") sharedApplication];
-                                            //SBPowerDownController *_powerDownController = MSHookIvar<SBPowerDownController*>(self, "_powerDownController");
                                             SBPowerDownController *_powerDownController = springboard.powerDownController;
                                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                                 HBLogDebug(@"_powerDownController = %@", _powerDownController);
@@ -1446,7 +1535,8 @@ static void sendSMS(NSString *reason) {
                         HBLogDebug(@"Can not evaluate Touch ID. This device doesn’t support one");
                         dispatch_async(dispatch_get_main_queue(), ^{
                             %orig;
-                            SBPowerDownController *_powerDownController = MSHookIvar<SBPowerDownController*>(self, "_powerDownController");
+                            SpringBoard *springboard = (SpringBoard*)[NSClassFromString(@"SpringBoard") sharedApplication];
+                            SBPowerDownController *_powerDownController = springboard.powerDownController;
                             UIAlertController *shutdownPasswordAlert = [self getShutdownPasswordAlert:_powerDownController];
                             [_powerDownController presentViewController:shutdownPasswordAlert animated:YES completion:nil];
                         });
@@ -1454,7 +1544,8 @@ static void sendSMS(NSString *reason) {
                 } else {
                     %orig;
                     HBLogDebug(@"i'm here!");
-                    SBPowerDownController *_powerDownController = MSHookIvar<SBPowerDownController*>(self, "_powerDownController");
+                    SpringBoard *springboard = (SpringBoard*)[NSClassFromString(@"SpringBoard") sharedApplication];
+                    SBPowerDownController *_powerDownController = springboard.powerDownController;
                     UIAlertController *shutdownPasswordAlert = [self getShutdownPasswordAlert:_powerDownController];
                     [_powerDownController presentViewController:shutdownPasswordAlert animated:YES completion:nil];
                 }
@@ -1495,14 +1586,6 @@ static void sendSMS(NSString *reason) {
 }
 
 %new
--(void)pickpocketSendNewHardResetMail {
-    HBLogDebug(@"inside pickpocketSendNewHardResetMail");
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        sendEmail(@"Scheduled Mail: Hard Reset Aborted! :)");
-    });
-}
-
-%new
 -(void)pickpocketSendNewShutdownPasscodeSMS {
     HBLogDebug(@"inside pickpocketSendNewShutdownPasscodeSMS");
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -1515,6 +1598,14 @@ static void sendSMS(NSString *reason) {
     HBLogDebug(@"inside pickpocketSendNewShutdownFingerprintSMS");
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         sendSMS(@"Scheduled SMS: Wrong Shutdown Fingerprint Detected!");
+    });
+}
+
+%new
+-(void)pickpocketSendNewHardResetMail {
+    HBLogDebug(@"inside pickpocketSendNewHardResetMail");
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sendEmail(@"Scheduled Mail: Hard Reset Aborted! :)");
     });
 }
 
@@ -1651,30 +1742,31 @@ static void sendSMS(NSString *reason) {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
         if (enabled) {
             if (unlockProtectionEnabled) {
+                getDeviceLocation();
                 unlockTotalWrongPassword++;
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                     if (unlockSaveFrontPic) {
                         #pragma clang diagnostic push
                         #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                        system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                        system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                         #pragma clang diagnostic pop
-                        UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                        UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                         UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                             NSFileManager *manager = [NSFileManager defaultManager];
-                            [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                            [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                         });
                     }
                     if (unlockSaveRearPic) {
                         #pragma clang diagnostic push
                         #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                        system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                        system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                         #pragma clang diagnostic pop
-                        UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                        UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                         UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                             NSFileManager *manager = [NSFileManager defaultManager];
-                            [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                            [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                         });
                     }
                 });
@@ -1759,30 +1851,31 @@ static void sendSMS(NSString *reason) {
                 }
 
                 if (r == 0) {
+                    getDeviceLocation();
                     unlockTotalWrongPassword++;
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                         if (unlockSaveFrontPic) {
                             #pragma clang diagnostic push
                         	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                    		system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                    		system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                     		#pragma clang diagnostic pop
-                        	UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                        	UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                        		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                        		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                             });
                         }
                         if (unlockSaveRearPic) {
                             #pragma clang diagnostic push
                         	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                    		system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                    		system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                     		#pragma clang diagnostic pop
-                        	UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                        	UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                        		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                        		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                             });
                         }
                     });
@@ -1855,6 +1948,7 @@ static void sendSMS(NSString *reason) {
             if (!unlockTouchIDDisabled) {
                 if (arg1 == 10) {
                     if (unlockProtectionEnabled) {
+                        getDeviceLocation();
                         unlockTotalWrongPassword++;
                         if (unlockTotalWrongPassword >= unlockAuthorizedPassword) {
                             isRinging = TRUE;
@@ -1894,25 +1988,25 @@ static void sendSMS(NSString *reason) {
                             if (unlockSaveFrontPic) {
                                 #pragma clang diagnostic push
                                 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                                system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                                 #pragma clang diagnostic pop
-                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                                 UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                     NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                                 });
                             }
                             if (unlockSaveRearPic) {
                                 #pragma clang diagnostic push
                                 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                                system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                                 #pragma clang diagnostic pop
-                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                                 UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                     NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                                 });
                             }
                         }
@@ -1938,6 +2032,24 @@ static void sendSMS(NSString *reason) {
         }
     });
 }
+
+- (void)setPasscodeLockVisible:(_Bool)arg1 animated:(_Bool)arg2 completion:(id)arg3 {
+    %orig;
+    if (lsButton != nil) {
+        if (arg1) {
+            [UIView animateWithDuration:0.3 delay:0.0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+                lsButton.alpha = 0.0f;
+            } completion:^(BOOL finished) {
+            }];
+        } else {
+            [UIView animateWithDuration:0.3 delay:0.0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+                lsButton.alpha = 1.0f;
+            } completion:^(BOOL finished) {
+            }];
+        }
+    }
+}
+
 
 %new
 -(void)pickpocketSendNewUnlockFingerprintMail {
@@ -1966,7 +2078,7 @@ static void sendSMS(NSString *reason) {
             showingLSFirstTime = FALSE;
         }
         if (firstUse) {
-            FBShowTwitterFollowAlert(@"PickPocket", @"Hey there! Thanks for buying PickPocket! If you'd like to follow @Ziph0n on Twitter for more updates, tweak giveaways and other cool stuff, hit the button below!", @"Ziph0n");
+            FBShowTwitterFollowAlert(@"PickPocket", @"Hey there! Thanks for installing PickPocket! If you'd like to follow @Ziph0n on Twitter, hit the button below!", @"Ziph0n");
             firstUse = FALSE;
             [preferences setBool:firstUse forKey:@"firstUse"];
         }
@@ -1999,27 +2111,19 @@ static void sendSMS(NSString *reason) {
 
 %hook SBDashBoardView
 
-- (id)initWithFrame:(CGRect)arg1 {
-    HBLogDebug(@"initWithFrame");
-    id r = %orig;
-    if (r && lsInfoEnabled) {
-        pageDrawn = FALSE;
-    }
-    return r;
-}
-
 - (void)layoutSubviews{
-    HBLogDebug(@"layoutSubviews");
     %orig;
-    if (!pageDrawn && lsInfoEnabled && showingLSFirstTime) {
-        HBLogDebug(@"button drawn");
+    if (enabled && lsInfoEnabled && !lsButtonDrawn) {
+
+        lsButtonDrawn = TRUE;
+
         CGRect screenRect = [[UIScreen mainScreen] bounds];
         CGFloat screenHeight = screenRect.size.height;
         CGFloat screenWidth = screenRect.size.width;
 
-        UIView *foregroundLockView = foregroundLockView = MSHookIvar<UIView*>(self, "_mainPageView");
+        UIView *foregroundLockView = MSHookIvar<UIView*>(self, "_higherSlideableContentView");
 
-        UIButton *lsButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+        lsButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
 
         if ([userXPosition isEqual:@""] && ![userYPosition isEqual:@""]) {
             lsButton.frame = CGRectMake((screenWidth / 2) - 75, [userYPosition floatValue], 150, 35);
@@ -2030,17 +2134,25 @@ static void sendSMS(NSString *reason) {
         } else {
             lsButton.frame = CGRectMake((screenWidth / 2) - 75, screenHeight - 100, 150, 35);
         }
+        [lsButton setBackgroundColor:LCPParseColorString(lsButtonBackgroundColor, @"#FFFFFF")];
         [lsButton setTitle:[NSString stringWithFormat:@"Found this %@?", [[UIDevice currentDevice] model]] forState:UIControlStateNormal];
-        [lsButton setTitleColor:LCPParseColorString(lsButtonColor, @"#FFFFFF") forState:UIControlStateNormal];
+        [lsButton setTitleColor:LCPParseColorString(lsButtonTextColor, @"#000000") forState:UIControlStateNormal];
+
+		lsButton.titleLabel.minimumScaleFactor = 0.01;
+		lsButton.titleLabel.adjustsFontSizeToFitWidth = true;
+        [lsButton.titleLabel setFont:[UIFont boldSystemFontOfSize:14.f]];
+
+        lsButton.layer.cornerRadius = 6;
+        lsButton.clipsToBounds = YES;
+
         [lsButton addTarget:self action:@selector(pickpocketLSButtonClicked:) forControlEvents:UIControlEventTouchUpInside];
         [foregroundLockView addSubview:lsButton];
-
-        pageDrawn = YES;
     }
 }
 
 %new
 -(void)pickpocketLSButtonClicked:(id)arg1 {
+    getDeviceLocation();
 
     lsViewIsShown = TRUE;
 
@@ -2048,7 +2160,7 @@ static void sendSMS(NSString *reason) {
     CGFloat screenHeight = screenRect.size.height;
     CGFloat screenWidth = screenRect.size.width;
 
-    UIView *foregroundView = MSHookIvar<UIView*>(self, "_slideableContentView");
+    UIView *foregroundView = MSHookIvar<UIView*>(self, "_higherSlideableContentView");
 
     foundView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenWidth, screenHeight)];
     foundView.alpha = 0.0f;
@@ -2225,6 +2337,16 @@ static void sendSMS(NSString *reason) {
     }];
 }
 
+- (void)viewControllerDidDisappear {
+    getDeviceLocation();
+    [foundView removeFromSuperview];
+    [lsButton removeFromSuperview];
+    lsButton = nil;
+    lsButtonDrawn = FALSE;
+    lsViewIsShown = FALSE;
+    %orig;
+}
+
 %new
 -(void)pickpocketFoundViewButtonClicked:(id)arg1 {
 
@@ -2252,6 +2374,7 @@ static void sendSMS(NSString *reason) {
             [UIView animateWithDuration:0.5 delay:0.5 options:UIViewAnimationOptionCurveEaseIn animations:^{
                 foundView.alpha = 0.0f;
             } completion:^(BOOL finished) {
+                [foundView removeFromSuperview];
             }];
         }];
     }];
@@ -2367,10 +2490,57 @@ static void sendSMS(NSString *reason) {
 }
 %end
 
+%hook SBAirplaneModeController
+
+- (void)airplaneModeChanged {
+    %orig;
+    if (enabled && airplaneModeEnabled) {
+        getDeviceLocation();
+        BOOL hasBeenBlocked = FALSE;
+        if (airplaneModeType == 1) {
+            if (isLocked) {
+                hasBeenBlocked = TRUE;
+            } else {
+                %orig;
+            }
+        } else if (airplaneModeType == 2) {
+            if (isRinging || hardResetAttempted || isInFakeShutdownMode) {
+                hasBeenBlocked = TRUE;
+            } else {
+                %orig;
+            }
+        } else if (airplaneModeType == 3) {
+            hasBeenBlocked = TRUE;
+        }
+        if (hasBeenBlocked && !airplaneModeProgrammaticallyControlled && airplaneModeTest) {
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+                SBAirplaneModeController *sbAirplaneModeController =  (SBAirplaneModeController *)[objc_getClass("SBAirplaneModeController") sharedInstance];
+                if ([sbAirplaneModeController isInAirplaneMode]) {
+                    [sbAirplaneModeController setInAirplaneMode:FALSE];
+
+                }
+                airplaneModeTest = FALSE;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                    airplaneModeTest = TRUE;
+                });
+                if (airplaneModeEmail) {
+                    sendEmail(@"Airplane Mode Blocked!");
+                }
+                if (airplaneModeSMS) {
+                    sendSMS(@"Airplane Mode Blocked!");
+                }
+            });
+        }
+    } else {
+        %orig;
+    }
+}
+
+%end
+
 %hook SBTelephonyManager
 
 - (void)setIsInAirplaneMode:(BOOL)arg1 {
-	HBLogDebug(@"setIsInAirplaneMode")
 	if (enabled && airplaneModeEnabled) {
 		BOOL hasBeenBlocked = FALSE;
 		if (airplaneModeType == 1) {
@@ -2412,7 +2582,6 @@ static void sendSMS(NSString *reason) {
 %hook SBCCAirplaneModeSetting
 
 - (_Bool)_toggleState {
-	HBLogDebug(@"_toggleState");
 	if (enabled && airplaneModeEnabled) {
 		BOOL hasBeenBlocked = FALSE;
 		if (airplaneModeType == 1) {
@@ -2428,9 +2597,9 @@ static void sendSMS(NSString *reason) {
 		}
 		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
 			if (hasBeenBlocked && !airplaneModeProgrammaticallyControlled && airplaneModeTest) {
-                airplaneModeTest = FALSE;
+                //airplaneModeTest = FALSE;
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                    airplaneModeTest = TRUE;
+                    //airplaneModeTest = TRUE;
                 });
 				if (airplaneModeEmail) {
                     sendEmail(@"Airplane Mode Blocked!");
@@ -2455,8 +2624,9 @@ static void sendSMS(NSString *reason) {
 %hook SBSIMLockManager
 
 - (void)_updateToStatus:(long long)arg1 {
-	if (simEnabled) {
+	if (enabled && simEnabled) {
 		if (arg1 == 3) { //3 = No SIM Card
+            getDeviceLocation();
 			if (wantsToDoSIMThings) {
 				wantsToDoSIMThings = FALSE;
 				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2547,12 +2717,6 @@ static void sendSMS(NSString *reason) {
         if ([sectionID isEqual:@"com.apple.MobileSMS"]) {
             if (message != nil) {
                 if (remoteActionStringType == 1) {
-                    
-                    HBLogDebug(@"remoteActionPlayAlarmEnabled = %d", remoteActionPlayAlarmEnabled);
-                    HBLogDebug(@"remoteActionPlayAlarmString = %@", remoteActionPlayAlarmString);
-                    HBLogDebug(@"isInFakeShutdownMode = %d", isInFakeShutdownMode);
-                    HBLogDebug(@"hardResetAttempted = %d", hardResetAttempted);
-                    HBLogDebug(@"firstRemoteTest = %d", firstRemoteTest);
 
                     if (remoteActionPlayAlarmEnabled && remoteActionPlayAlarmString != nil && !isInFakeShutdownMode && !hardResetAttempted && firstRemoteTest) {
                     	firstRemoteTest = FALSE;
@@ -2664,13 +2828,13 @@ static void sendSMS(NSString *reason) {
                         if ([message isEqual:remoteActionFrontPicString]) {
                             #pragma clang diagnostic push
                             #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                            system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                            system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                             #pragma clang diagnostic pop
-                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                             });
                             remoteAction = TRUE;
                         }
@@ -2684,13 +2848,13 @@ static void sendSMS(NSString *reason) {
                         if ([message isEqual:remoteActionRearPicString]) {
                             #pragma clang diagnostic push
                             #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                            system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                            system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                             #pragma clang diagnostic pop
-                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                             });
                             remoteAction = TRUE;
                         }
@@ -2831,13 +2995,13 @@ static void sendSMS(NSString *reason) {
                         if ([message rangeOfString:remoteActionFrontPicString].location != NSNotFound) {
                             #pragma clang diagnostic push
                             #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                            system("camshot -front /var/mobile/Documents/thiefFrontPic.jpg");
+                            system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
                             #pragma clang diagnostic pop
-                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefFrontPic.jpg"];
+                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefFrontPic.jpg"] error:nil];
+                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
                             });
                             remoteAction = TRUE;
                         }
@@ -2851,13 +3015,13 @@ static void sendSMS(NSString *reason) {
                         if ([message rangeOfString:remoteActionRearPicString].location != NSNotFound) {
                             #pragma clang diagnostic push
                             #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                            system("camshot -back /var/mobile/Documents/thiefRearPic.jpg");
+                            system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
                             #pragma clang diagnostic pop
-                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Documents/thiefRearPic.jpg"];
+                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
                             UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
                             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                                 NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/thiefRearPic.jpg"] error:nil];
+                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
                             });
                             remoteAction = TRUE;
                         }
@@ -2891,6 +3055,7 @@ static void sendSMS(NSString *reason) {
         }
 
         if (remoteAction) {
+            getDeviceLocation();
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                 FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
                 NSString *switchIdentifier = nil;
@@ -2911,8 +3076,8 @@ static void sendSMS(NSString *reason) {
                 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 						airplaneModeProgrammaticallyControlled = FALSE;
 					});
-                    switchIdentifier = @"com.a3tweaks.switch.airplane-mode";
-                    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+                    SBAirplaneModeController *sbAirplaneModeController =  (SBAirplaneModeController *)[objc_getClass("SBAirplaneModeController") sharedInstance];
+                    [sbAirplaneModeController setInAirplaneMode:FALSE];
                 }
                 if (remoteActionEnableDND) {
                     switchIdentifier = @"com.a3tweaks.switch.do-not-disturb";
@@ -2978,6 +3143,133 @@ static void sendSMS(NSString *reason) {
 
 %end
 
+%hook WeatherLocationManager
+
+- (void)locationManager:(id)arg1 didUpdateLocations:(id)arg2 {
+    %orig;
+    if (enabled) {
+	    NSArray *locations = arg2;
+	    if (locations.count > 0) {
+	        CLLocation *location = locations[0];
+	        currenLocation = location.coordinate;
+	    }
+	}
+}
+
+- (id)locationManager {
+	if (enabled) {
+	    CLLocationManager *locationManager = %orig;
+	    locationManager.desiredAccuracy = kCLLocationAccuracyBest;
+	    [locationManager startUpdatingLocation];
+	    return locationManager;
+	} else {
+		return %orig;
+	}
+}
+
+%end
+
+%hook SBDashBoardPearlUnlockBehavior
+
+- (void)_handlePearlFailure {
+    %orig;
+    if (enabled && unlockProtectionEnabled) {
+        getDeviceLocation();
+        unlockTotalWrongPassword++;
+        if (unlockTotalWrongPassword >= unlockAuthorizedPassword) {
+            isRinging = TRUE;
+            unlockTotalWrongPassword = 0;
+            if (!isHeadsetPluggedIn()) {
+                [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+                [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
+            }
+            if (unlockAlarmType == 1) {
+                unlockPlayer.numberOfLoops = -1;
+                [unlockPlayer play];
+            } else if (unlockAlarmType == 2) {
+                [synthesizer speakUtterance:unlockUtterance];;
+            }
+            if (unlockProtectionEmail) {
+                sendEmail(@"Wrong Face ID Detected!");
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (mailRepeat) {
+                        if (mailTimer == nil) {
+                            mailTimer = [NSTimer scheduledTimerWithTimeInterval:mailEveryXMinutes * 60.0 target:self selector:@selector(pickpocketSendNewFaceIDMail) userInfo:nil repeats:YES];
+                        }
+                    }
+                });
+            }
+            if (unlockProtectionSMS) {
+                sendSMS(@"Wrong Face ID Detected!");
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (smsRepeat) {
+                        if (smsTimer == nil) {
+                            smsTimer = [NSTimer scheduledTimerWithTimeInterval:smsEveryXMinutes * 60.0 target:self selector:@selector(pickpocketSendNewFaceIDSMS) userInfo:nil repeats:YES];
+                        }
+                    }
+                });
+            }
+        }
+        if (!unlockSavePicOnlyPassword) {
+            if (unlockSaveFrontPic) {
+                #pragma clang diagnostic push
+                #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+                system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
+                #pragma clang diagnostic pop
+                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
+                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                    NSFileManager *manager = [NSFileManager defaultManager];
+                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+                });
+            }
+            if (unlockSaveRearPic) {
+                #pragma clang diagnostic push
+                #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+                system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
+                #pragma clang diagnostic pop
+                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
+                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                    NSFileManager *manager = [NSFileManager defaultManager];
+                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
+                });
+            }
+        }
+    }
+}
+
+
+
+%new
+-(void)pickpocketSendNewFaceIDMail {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sendEmail(@"Scheduled Mail: Wrong Face ID Detected!");
+    });
+}
+
+%new
+-(void)pickpocketSendNewFaceIDSMS {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sendSMS(@"Scheduled SMS: Wrong Face ID Detected!");
+    });
+}
+
+%end
+
+%hook AVCaptureIrisStillImageSettings
+-(unsigned long) shutterSound {
+    HBLogDebug(@"vsqjhbcljqshbc,");
+    return 0;
+}
+%end
+
+%hookf(void, AudioServicesPlaySystemSound, SystemSoundID inSystemSoundID) {
+    HBLogDebug(@"fdhjnk,");
+    if (inSystemSoundID == 1108) return;
+    %orig(inSystemSoundID);
+}
+
 %ctor {
 
     NSString *pickPocketPath = @"/var/mobile/Library/";
@@ -2989,7 +3281,7 @@ static void sendSMS(NSString *reason) {
     }
 
 	@autoreleasepool {
-        BOOL shouldLoad = NO;
+        BOOL shouldLoad = YES;
         NSArray *args = [[NSClassFromString(@"NSProcessInfo") processInfo] arguments];
         NSUInteger count = args.count;
         if (count != 0) {
@@ -3006,7 +3298,7 @@ static void sendSMS(NSString *reason) {
 
         if (shouldLoad) {
             
-            preferences = [HBPreferences preferencesForIdentifier:@"com.ziph0n.pickpocket10"];
+            preferences = [HBPreferences preferencesForIdentifier:@"com.ziph0n.pickpocket11"];
             [preferences registerBool:&enabled default:YES forKey:@"enabled"];
             [preferences registerBool:&firstUse default:YES forKey:@"firstUse"];
 
@@ -3175,8 +3467,9 @@ static void sendSMS(NSString *reason) {
             [preferences registerBool:&smsEnableWifi default:YES forKey:@"smsEnableWifi"];
             [preferences registerBool:&smsDisableAirplane default:YES forKey:@"smsDisableAirplane"];
 
-            NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.ziph0n.pickpocket10.plist"];
-            lsButtonColor = ([prefs objectForKey:@"lsButtonColor"] ? [prefs objectForKey:@"lsButtonColor"] : @"#FFFFFF");
+            NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.ziph0n.pickpocket11.plist"];
+            lsButtonTextColor = ([prefs objectForKey:@"lsButtonTextColor"] ? [prefs objectForKey:@"lsButtonTextColor"] : @"#000000");
+            lsButtonBackgroundColor = ([prefs objectForKey:@"lsButtonBackgroundColor"] ? [prefs objectForKey:@"lsButtonBackgroundColor"] : @"#FFFFFF");
 
             if ([shutdownPassword isEqual:@""]) {
                 shutdownPassword = @"alpine";
@@ -3272,8 +3565,7 @@ static void sendSMS(NSString *reason) {
                 initializeSIMSpeech();
             }
             
-            MSHookFunction((void **)AudioServicesPlaySystemSound, (void **)replaced_AudioServicesPlaySystemSound, (void **)&original_AudioServicesPlaySystemSound);
-            %init();
+            //%init();
         }
-    }
+   }
 }

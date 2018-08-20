@@ -18,19 +18,19 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownPasswordEnabled</string>
 			<key>label</key>
 			<string>Allow Real Shutdown</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSSecureEditTextCell</string>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownPassword</string>
 			<key>label</key>
@@ -38,7 +38,7 @@
 			<key>placeholder</key>
 			<string>Default: alpine</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -52,13 +52,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownSaveFrontPic</string>
 			<key>label</key>
 			<string>Save Front Pic</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -66,13 +66,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownSaveRearPic</string>
 			<key>label</key>
 			<string>Save Rear Pic</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -86,13 +86,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownWrongPasswordSaveFrontPic</string>
 			<key>label</key>
 			<string>Save Front Pic</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -100,13 +100,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownWrongPasswordSaveRearPic</string>
 			<key>label</key>
 			<string>Save Rear Pic</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -120,13 +120,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownEmail</string>
 			<key>label</key>
 			<string>Send Email</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -134,13 +134,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownSMS</string>
 			<key>label</key>
 			<string>Send SMS</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -154,13 +154,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownPasswordCancelEmail</string>
 			<key>label</key>
 			<string>Send Email</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -168,13 +168,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownPasswordCancelSMS</string>
 			<key>label</key>
 			<string>Send SMS</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -196,13 +196,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownEnableDND</string>
 			<key>label</key>
 			<string>Enable Do Not Disturb</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -210,13 +210,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownEnableLPM</string>
 			<key>label</key>
 			<string>Enable Low Power Mode</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -224,13 +224,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownDisableRinger</string>
 			<key>label</key>
 			<string>Disable Ringer</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -238,13 +238,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fakeShutdownDisableVibration</string>
 			<key>label</key>
 			<string>Disable Vibration</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 	</array>
 	<key>title</key>

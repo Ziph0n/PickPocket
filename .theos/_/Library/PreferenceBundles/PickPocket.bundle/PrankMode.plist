@@ -18,13 +18,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>prankModeEnabled</string>
 			<key>label</key>
 			<string>Prank Mode Enabled</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -38,61 +38,61 @@
 			<key>cell</key>
 			<string>PSEditTextCell</string>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>firstPrankPassword</string>
 			<key>label</key>
 			<string>Prank Password 1</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSEditTextCell</string>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>secondPrankPassword</string>
 			<key>label</key>
 			<string>Prank Password 2</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSEditTextCell</string>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>thirdPrankPassword</string>
 			<key>label</key>
 			<string>Prank Password 3</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSEditTextCell</string>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fourthPrankPassword</string>
 			<key>label</key>
 			<string>Prank Password 4</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSEditTextCell</string>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>fifthPrankPassword</string>
 			<key>label</key>
 			<string>Prank Password 5</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -108,13 +108,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetEmail</string>
 			<key>label</key>
 			<string>Send Email</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -122,13 +122,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetSMS</string>
 			<key>label</key>
 			<string>Send SMS</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>

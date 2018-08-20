@@ -18,13 +18,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>airplaneModeEnabled</string>
 			<key>label</key>
 			<string>Airplane CC Toggle Enabled</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -40,7 +40,7 @@
 			<key>default</key>
 			<integer>1</integer>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>airplaneModeType</string>
 			<key>validValues</key>
@@ -56,7 +56,7 @@
 					<string>Always</string>
 				</array>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -72,13 +72,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>airplaneModeEmail</string>
 			<key>label</key>
 			<string>Send Email</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -86,13 +86,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>airplaneModeSMS</string>
 			<key>label</key>
 			<string>Send SMS</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 	</array>
 	<key>title</key>

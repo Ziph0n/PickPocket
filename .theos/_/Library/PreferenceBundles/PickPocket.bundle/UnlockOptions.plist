@@ -18,13 +18,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockProtectionEnabled</string>
 			<key>label</key>
 			<string>Unlock Protection Enabled</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -40,7 +40,7 @@
 			<key>default</key>
 			<real>2</real>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockAuthorizedPassword</string>
 			<key>isSegmented</key>
@@ -52,7 +52,7 @@
 			<key>max</key>
 			<real>10</real>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -60,13 +60,13 @@
 			<key>default</key>
 			<false/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockTouchIDDisabled</string>
 			<key>label</key>
 			<string>Disable wrong fingerprint count</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -82,7 +82,7 @@
 			<key>default</key>
 			<integer>1</integer>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockAlarmType</string>
 			<key>validValues</key>
@@ -98,7 +98,7 @@
 					<string>None</string>
 				</array>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -130,13 +130,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockSaveFrontPic</string>
 			<key>label</key>
 			<string>Save Front Pic</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -144,13 +144,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockSaveRearPic</string>
 			<key>label</key>
 			<string>Save Rear Pic</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -158,13 +158,13 @@
 			<key>default</key>
 			<false/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockSavePicOnlyPassword</string>
 			<key>label</key>
 			<string>Only On Wrong Password</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -180,13 +180,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockProtectionEmail</string>
 			<key>label</key>
 			<string>Send Email</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -194,13 +194,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>unlockProtectionSMS</string>
 			<key>label</key>
 			<string>Send SMS</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 	</array>
 	<key>title</key>

@@ -18,13 +18,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetEnabled</string>
 			<key>label</key>
 			<string>Fake Hard Reset Enabled</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -40,13 +40,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetEmail</string>
 			<key>label</key>
 			<string>Send Email</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -54,13 +54,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetSMS</string>
 			<key>label</key>
 			<string>Send SMS</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -82,13 +82,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetEnableDND</string>
 			<key>label</key>
 			<string>Enable Do Not Disturb</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -96,13 +96,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetEnableLPM</string>
 			<key>label</key>
 			<string>Enable Low Power Mode</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -110,13 +110,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetDisableRinger</string>
 			<key>label</key>
 			<string>Disable Ringer</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -124,13 +124,13 @@
 			<key>default</key>
 			<true/>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>hardResetDisableVibration</string>
 			<key>label</key>
 			<string>Disable Vibration</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 	</array>
 	<key>title</key>

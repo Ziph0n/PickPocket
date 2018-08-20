@@ -1,10 +1,11 @@
-Package: com.ziph0n.pickpocket10
-Name: PickPocket 2 (iOS 10)
-Depends: mobilesubstrate, org.thebigboss.camshot, ws.hbang.common, com.a3tweaks.flipswitch, org.thebigboss.libcolorpicker
-Conflicts: com.runnersaw.hud, com.ziph0n.pickpocket
-Version: 1.3
+Package: com.ziph0n.pickpocket11
+Name: PickPocket 3 (iOS 11)
+Depends: mobilesubstrate, com.ziph0n.camshot, ws.hbang.common, com.a3tweaks.flipswitch, org.thebigboss.libcolorpicker
+Conflicts: com.runnersaw.hud, com.ziph0n.pickpocket, com.ziph0n.pickpocket10, com.gilshahar7.pearlretry
+Version: 0.9
 Architecture: iphoneos-arm
 Description: A powerful, full featured and highly customizable tweak against thieves!
 Maintainer: Ziph0n
 Author: Ziph0n
 Section: Tweaks
+Depiction: https://repo.ziph0n.com/depictions/?p=com.ziph0n.pickpocket11

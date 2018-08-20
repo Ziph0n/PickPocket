@@ -16,7 +16,7 @@
 			<key>cell</key>
 			<string>PSEditTextViewCell</string>
 			<key>defaults</key>
-			<string>com.ziph0n.pickpocket10</string>
+			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>remoteActionSpeech</string>
 			<key>label</key>
@@ -24,7 +24,7 @@
 			<key>height</key>
 			<string>400</string>
 			<key>PostNotification</key>
-			<string>com.ziph0n.pickpocket10/ReloadPrefs</string>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 	</array>
 	<key>title</key>

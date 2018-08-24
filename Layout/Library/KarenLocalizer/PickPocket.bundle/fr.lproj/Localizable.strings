@@ -1,0 +1,8 @@
+"FOUND_BUTTON" = "%@ trouvé ?";
+"CLOSE" = "Fermer";
+"OWNER" = "Le possesseur de cet appareil est :";
+"LIVE1" = "Veuillez taper sur un des boutons ci-dessous pour m'appeler ou pour m'envoyer un E-Mail.\nMerci !";
+"LIVE2" = "J'habite à %@\nVeuillez taper sur un des boutons ci-dessous pour m'appeler ou pour m'envoyer un E-Mail.\nMerci !";
+"LIVE3" = "J'habite à %@, en %@\nVeuillez taper sur un des boutons ci-dessous pour m'appeler ou pour m'envoyer un E-Mail.\nMerci !";
+"CALL" = "Appeler";
+"EMAIL" = "E-Mail";

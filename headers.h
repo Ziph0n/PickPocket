@@ -13,13 +13,13 @@
 #include <IOKit/hid/IOHIDEventSystem.h>
 #import <UIKit/UIWindow+Private.h>
 #import <Flipswitch/Flipswitch.h>
-#import "AYVibrantButton/AYVibrantButton.h"
 #import "libfireball/libfireball.h"
+#import "IABlocks/UIAlertView+IABlocks.h"
 #import <libcolorpicker.h>
+#import <KarenLocalizer/KarenLocalizer.h>
 
 @interface SBPowerDownController : UIViewController
 @end
-
 
 @interface SBLockHardwareButtonActions
 - (void)performLongPressActions;
@@ -47,6 +47,7 @@
 @interface AVSystemController : NSObject
 + (id)sharedAVSystemController;
 - (bool)setVolumeTo:(float)arg1 forCategory:(id)arg2;
+- (bool)getVolume:(float*)arg1 forCategory:(id)arg2;
 @end
 
 @interface MFMutableMessageHeaders
@@ -86,8 +87,12 @@
 - (void)setInAirplaneMode:(BOOL)arg1;
 @end
 
-@interface WeatherLocationManager
+@interface WeatherLocationManager <CLLocationManagerDelegate>
 + (id)sharedWeatherLocationManager;
 - (void)forceLocationUpdate;
 - (CLLocationCoordinate2D*)lastLocationCoord;
+@end
+
+@interface SBDashBoardIdleTimerProvider
+- (void)resetIdleTimer;
 @end

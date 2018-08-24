@@ -2,8 +2,6 @@
 	Filter = {
 		Bundles = (
 			"com.apple.springboard",
-			"com.apple.UIKit",
-			"com.apple.AVFoundation",
 		);
 	};
 }

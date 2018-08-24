@@ -516,6 +516,42 @@
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Emergency Mode</string>
+			<key>footerText</key>
+			<string>When triggered, all PickPocket features will be enabled (You still need to configure them beforehand)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>remoteActionEmergencyModeEnabled</string>
+			<key>label</key>
+			<string>Emergency Mode Enabled</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>remoteActionEmergencyModeString</string>
+			<key>label</key>
+			<string>Text: </string>
+			<key>placeholder</key>
+			<string>String which will trigger this action</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
 	</array>
 	<key>title</key>
 	<string>Remote Action Options</string>

@@ -9,8 +9,40 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>General</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>mailEnabled</string>
+			<key>label</key>
+			<string>Enabled</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
 			<key>footerText</key>
-			<string>Note: The sender email needs to be added to the stock Mail app. You can set up to 5 email addresses to send to.</string>
+			<string>If enabled, emails will not be sended from my server. Be careful, sending a mail from a device has a lower success rate than sending it from my server. Note: The sender email needs to be added to the stock Mail app. </string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>sendMailLocally</string>
+			<key>label</key>
+			<string>Don't send from server</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -23,6 +55,14 @@
 			<string>Sender Email</string>
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>E-Mail Addresses</string>
+			<key>footerText</key>
+			<string>You can set up to 5 email addresses to send to.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

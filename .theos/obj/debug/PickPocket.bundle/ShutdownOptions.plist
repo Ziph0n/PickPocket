@@ -45,11 +45,13 @@
 				<array>
 					<integer>1</integer>
 					<integer>2</integer>
+					<integer>3</integer>
 				</array>
 			<key>validTitles</key>
 				<array>
 					<string>Touch ID / Password</string>
 					<string>Fake Shutdown</string>
+					<string>Respring</string>
 				</array>
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
@@ -69,6 +71,14 @@
 			<string>Fake Shutdown Options</string>
 			<key>detail</key>
 			<string>PickPocketFakeShutdownListController</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>label</key>
+			<string>Respring Options</string>
+			<key>detail</key>
+			<string>PickPocketRespringListController</string>
 		</dict>
 	</array>
 	<key>title</key>

@@ -6,6 +6,7 @@ static HBPreferences *preferences;
 KarenLocalizer *karenLocalizer;
 
 static BOOL enabled;
+static BOOL reallyEnabled = TRUE;
 static BOOL firstUse = TRUE;
 static BOOL canShowLocationWarning = TRUE;
 
@@ -41,6 +42,15 @@ static BOOL fakeShutdownEnableLPM;
 static BOOL fakeShutdownDisableRinger;
 static BOOL fakeShutdownDisableVibration;
 
+static BOOL respringImmediately;
+static NSInteger respringDelay;
+static BOOL respringEmail;
+static BOOL respringSMS;
+static BOOL respringEnableDND;
+static BOOL respringEnableLPM;
+static BOOL respringDisableRinger;
+static BOOL respringDisableVibration;
+
 static BOOL unlockProtectionEnabled;
 static NSInteger unlockAuthorizedPassword;
 static BOOL unlockTouchIDEnabled;
@@ -50,6 +60,8 @@ static BOOL unlockProtectionSMS;
 static BOOL unlockSaveFrontPic;
 static BOOL unlockSaveRearPic;
 static BOOL unlockSavePicOnlyPassword;
+static BOOL unlockAlwaysSaveFrontPic;
+static BOOL unlockAlwaysSaveRearPic;
 
 static NSInteger unlockAlarmType = 1;
 static NSString *unlockAlarm;
@@ -78,10 +90,10 @@ static NSString *userCity;
 static NSString *userCountry;
 static NSString *userNumberToCall;
 static BOOL userSendSMS;
-static NSString *userXPosition;
-static NSString *userYPosition;
-static NSString *userCloseXPosition;
-static NSString *userCloseYPosition;
+static NSInteger userXPosition;
+static NSInteger userYPosition;
+static NSInteger userCloseXPosition;
+static NSInteger userCloseYPosition;
 static NSInteger userBorderWidth;
 static NSInteger userTextType = 1;
 static NSInteger userButtonStyle = 1;
@@ -205,6 +217,8 @@ static NSString *simSpeech;
 static BOOL simEmail;
 static BOOL simSMS;
 
+static BOOL mailEnabled;
+static BOOL sendMailLocally;
 static NSString *senderEmail;
 static NSString *firstReceiverEmail;
 static NSString *secondReceiverEmail;
@@ -225,6 +239,7 @@ static BOOL mailEnableCellular;
 static BOOL mailEnableLocation;
 static BOOL mailEnableWifi;
 
+static BOOL smsEnabled;
 static NSString *firstPhoneNumber;
 static NSString *secondPhoneNumber;
 static NSString *thirdPhoneNumber;
@@ -247,12 +262,28 @@ static BOOL smsDisableAirplane;
 
 static BOOL frontFlashEnabled;
 
+static BOOL homeEnabled;
+static NSString *firstKnownNetwork;
+static NSString *secondKnownNetwork;
+static NSString *thirdKnownNetwork;
+static NSString *fourthKnownNetwork;
+static NSString *fifthKnownNetwork;
+
+static BOOL sosFeatureEnabled;
+static BOOL sosDisabled;
+static BOOL sosSaveFrontPic;
+static BOOL sosSaveRearPic;
+static BOOL sosEmail;
+static BOOL sosSMS;
+static BOOL canDoSOSThings = TRUE;
+
 static NSTimer *lockscreenIdleTimer;
 static BOOL isScreenOff;
 
 static BOOL isTakingFrontPicture = FALSE;
 static BOOL isTakingRearPicture = FALSE;
 
+static BOOL locationInitialized = FALSE;
 static CLLocationCoordinate2D currenLocation;
 
 static NSString *getDeviceModel() {
@@ -330,16 +361,11 @@ static void getDeviceLocation() {
 }
 
 static void showWhiteFlash() {
-	if (frontFlashEnabled) {
-		//CGRect screenRect = [[UIScreen mainScreen] bounds];
-	    
-		UIView *rootView = [[[UIApplication sharedApplication] keyWindow] 
-                                   rootViewController].view;
-		HBLogDebug(@"rootView: %@", [rootView bounds]);
-		CGRect originalFrame = [[UIScreen mainScreen] bounds];
-		CGRect adjustedFrame = [rootView convertRect:originalFrame fromView:nil];
-		CGFloat screenHeight = adjustedFrame.size.height;
-	    CGFloat screenWidth = adjustedFrame.size.width;
+	if (frontFlashEnabled && !isInFakeShutdownMode) {
+
+		CGRect screenSize = [[UIScreen mainScreen] bounds];
+		CGFloat screenHeight = screenSize.size.height;
+	    CGFloat screenWidth = screenSize.size.width;
 
 		dispatch_async(dispatch_get_main_queue(), ^{
 		    UIWindow *whiteFlashWindow = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, screenWidth, screenHeight)];
@@ -369,6 +395,10 @@ static void takeFrontPic() {
 	BOOL shouldControlRinger = TRUE;
 
 	if ([fsp stateForSwitchIdentifier:switchIdentifier] == FSSwitchStateOff) {
+		shouldControlRinger = FALSE;
+	}
+
+	if (isRinging) {
 		shouldControlRinger = FALSE;
 	}
 
@@ -402,6 +432,10 @@ static void takeRearPic() {
 		shouldControlRinger = FALSE;
 	}
 
+	if (isRinging) {
+		shouldControlRinger = FALSE;
+	}
+
 	if (shouldControlRinger) {
 	    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
 	} 
@@ -419,393 +453,404 @@ static void takeRearPic() {
 	});
 }
 
-static void sendEmail(NSString *reason) {
-    getDeviceLocation();
-    FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
-    NSString *switchIdentifier = nil;
-    if (mailEnableCellular) {
-        switchIdentifier = @"com.a3tweaks.switch.cellular-data";
-        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
-    }
-    if (mailEnableLocation) {
-        switchIdentifier = @"com.a3tweaks.switch.location";
-        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
-    }
-    if (mailEnableWifi) {
-        switchIdentifier = @"com.a3tweaks.switch.wifi";
-        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
-    }
-
-	NSMutableString *emailBody = [[[NSMutableString alloc] initWithString:@"<html><body>"] retain];
-
-    if (mailCustomText != nil && ![mailCustomText isEqual:@""]) {
-        [emailBody appendString:[NSString stringWithFormat:@"<p>%@</p> <br />", mailCustomText]];
-    }
-
-	[emailBody appendString:@"<p>This email was sent by PickPocket for the following reason:</p>"];
-	[emailBody appendString:[NSString stringWithFormat:@"<p><b>%@</b></p> <br />", reason]];
-
-	if (mailTime) {
-		NSDate *now = [NSDate date];
-		NSDateFormatter *outputFormatter = [[NSDateFormatter alloc] init];
-		[outputFormatter setDateFormat:@"EEEE, d MMMM yyyy HH:mm:ss"];
-		NSString *dateString = [outputFormatter stringFromDate:now];
-		[emailBody appendString:[NSString stringWithFormat:@"<p><b>Time:</b> %@</p> <br />", dateString]];
-		[outputFormatter release];
-	}
-
-	if (mailDeviceDetails) {
-		NSString *deviceModel = getDeviceModel();
-		[emailBody appendString:[NSString stringWithFormat:@"<p><b>Device Model:</b> %@</p>", deviceModel]];
-		[emailBody appendString:[NSString stringWithFormat:@"<p><b>iOS Version:</b> iOS %@</p>", [[UIDevice currentDevice] systemVersion]]];
-		[emailBody appendString:[NSString stringWithFormat:@"<p><b>Device Name:</b> %@</p> <br />", [[UIDevice currentDevice] name]]];
-	}
-
-	if (mailBattery) {
-		[[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
-		CGFloat currentLevel = (CGFloat)[[UIDevice currentDevice] batteryLevel] * 100;
-		[emailBody appendString:[NSString stringWithFormat:@"<p><b>Battery Level:</b> %f</p> <br />", currentLevel]];
-	}
-
-	if (mailFrontPic) {
-		takeFrontPic();
-		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-		NSData *frontPicData = [NSData dataWithData:UIImagePNGRepresentation(frontPic)];
-	    NSString *base64StringFrontPic = [frontPicData base64EncodedStringWithOptions:0];
-	    [emailBody appendString:[NSString stringWithFormat:@"<p><b>Front Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringFrontPic]];
-		NSFileManager *manager = [NSFileManager defaultManager];
-		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-	}
-
-	if (mailRearPic) {
-		takeRearPic();
-		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-		NSData *rearPicData = [NSData dataWithData:UIImagePNGRepresentation(rearPic)];
-	    NSString *base64StringRearPic = [rearPicData base64EncodedStringWithOptions:0];
-		[emailBody appendString:[NSString stringWithFormat:@"<p><b>Rear Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringRearPic]];
-		NSFileManager *manager = [NSFileManager defaultManager];
-		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-	}
-
-	if (mailLocation) {
-		[emailBody appendString:@"<p><b>Location Details:</b></p>"];
-		double currentLatitude = currenLocation.latitude;
-    	double currentLongitude = currenLocation.longitude;
-		[emailBody appendString:[NSString stringWithFormat:@"<p>Latitude: %f, Longitude: %f</p>", currentLatitude, currentLongitude]];
-
-		CLLocation *actualLocation = [[CLLocation alloc] initWithLatitude:currentLatitude longitude:currentLongitude];
-    	CLGeocoder *geoCoder = [[CLGeocoder alloc] init];
-		[geoCoder reverseGeocodeLocation:actualLocation completionHandler: ^(NSArray *placemarks, NSError *error) {
-	    	CLPlacemark *placemark = [placemarks objectAtIndex:0];
-			NSString *locatedAt = [[placemark.addressDictionary valueForKey:@"FormattedAddressLines"] componentsJoinedByString:@", "];
-			[emailBody appendString:[NSString stringWithFormat:@"<p>Detailed Location: %@</p>", locatedAt]];
-			[emailBody appendString:[NSString stringWithFormat:@"<p>Google Map: http://maps.google.com/maps?q=%f,%f</p>", currentLatitude, currentLongitude]];
-			[emailBody appendString:@"</body></html>"];
-
-			MFMessageWriter *messageWriter = [[%c(MFMessageWriter) alloc] init];
-			MFMutableMessageHeaders *headers = [[%c(MFMutableMessageHeaders) alloc] init];
-			NSString *subject = [NSString stringWithFormat:@"PickPocket: %@", reason];
-			[headers setHeader:subject forKey:@"subject"];
-			[headers setAddressListForTo:[NSArray arrayWithObjects:firstReceiverEmail, secondReceiverEmail, thirdReceiverEmail, fourthReceiverEmail, fifthReceiverEmail, nil]];
-			[headers setAddressListForSender:[NSArray arrayWithObjects:senderEmail, nil]];
-			MFOutgoingMessage *message = [messageWriter createMessageWithHtmlString:emailBody attachments:nil headers:headers];
-			MFMailDelivery *messageDelivery = [%c(MFMailDelivery) newWithMessage:message];
-			[messageDelivery deliverAsynchronously];
+static void reallySendEmail(NSString *subject, NSString *emailBody) {
+	if (!sendMailLocally) {
+		[EmailSender sendMailWithBody:emailBody subject:subject firstReceiverEmail:firstReceiverEmail secondReceiverEmail:secondReceiverEmail thirdReceiverEmail:thirdReceiverEmail fourthReceiverEmail:fourthReceiverEmail fifthReceiverEmail:fifthReceiverEmail frontPicture:/*UIImagePNGRepresentation(rearPic)*/nil rearPicture:nil
+	    completionBlock:^(NSString *result) {
+	    }
+	    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
+	    	HBLogDebug(@"email sent! %@, %@", a, error);
 		}];
 	} else {
-	    [emailBody appendString:@"</body></html>"];
-
 		MFMessageWriter *messageWriter = [[%c(MFMessageWriter) alloc] init];
-	    MFMutableMessageHeaders *headers = [[%c(MFMutableMessageHeaders) alloc] init];
-		NSString *subject = [NSString stringWithFormat:@"PickPocket: %@", reason];
-	    [headers setHeader:subject forKey:@"subject"];
-        [headers setAddressListForTo:[NSArray arrayWithObjects:firstReceiverEmail, secondReceiverEmail, thirdReceiverEmail, fourthReceiverEmail, fifthReceiverEmail, nil]];
-        [headers setAddressListForSender:[NSArray arrayWithObjects:senderEmail, nil]];
-	    MFOutgoingMessage *message = [messageWriter createMessageWithHtmlString:emailBody attachments:nil headers:headers];
-	    MFMailDelivery *messageDelivery = [%c(MFMailDelivery) newWithMessage:message];
-	    [messageDelivery deliverAsynchronously];
-		HBLogDebug(@"email sent");
+		MFMutableMessageHeaders *headers = [[%c(MFMutableMessageHeaders) alloc] init];
+		[headers setHeader:subject forKey:@"subject"];
+		[headers setAddressListForTo:[NSArray arrayWithObjects:firstReceiverEmail, secondReceiverEmail, thirdReceiverEmail, fourthReceiverEmail, fifthReceiverEmail, nil]];
+		[headers setAddressListForSender:[NSArray arrayWithObjects:senderEmail, nil]];
+		MFOutgoingMessage *message = [messageWriter createMessageWithHtmlString:emailBody attachments:nil headers:headers];
+		MFMailDelivery *messageDelivery = [%c(MFMailDelivery) newWithMessage:message];
+		[messageDelivery deliverAsynchronously];
+	}
+}
+
+static void sendEmail(NSString *reason) {
+	if (mailEnabled) {
+	    getDeviceLocation();
+	    FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+	    NSString *switchIdentifier = nil;
+	    if (mailEnableCellular) {
+	        switchIdentifier = @"com.a3tweaks.switch.cellular-data";
+	        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+	    }
+	    if (mailEnableLocation) {
+	        switchIdentifier = @"com.a3tweaks.switch.location";
+	        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+	    }
+	    if (mailEnableWifi) {
+	        switchIdentifier = @"com.a3tweaks.switch.wifi";
+	        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+	    }
+
+		NSMutableString *emailBody = [[[NSMutableString alloc] initWithString:@"<html><body>"] retain];
+
+	    if (mailCustomText != nil && ![mailCustomText isEqual:@""]) {
+	        [emailBody appendString:[NSString stringWithFormat:@"<p>%@</p> <br />", mailCustomText]];
+	    }
+
+		[emailBody appendString:@"<p>This email was sent by PickPocket for the following reason:</p>"];
+		[emailBody appendString:[NSString stringWithFormat:@"<p><b>%@</b></p> <br />", reason]];
+
+		if (mailTime) {
+			NSDate *now = [NSDate date];
+			NSDateFormatter *outputFormatter = [[NSDateFormatter alloc] init];
+			[outputFormatter setDateFormat:@"EEEE, d MMMM yyyy HH:mm:ss"];
+			NSString *dateString = [outputFormatter stringFromDate:now];
+			[emailBody appendString:[NSString stringWithFormat:@"<p><b>Time:</b> %@</p> <br />", dateString]];
+			[outputFormatter release];
+		}
+
+		if (mailDeviceDetails) {
+			NSString *deviceModel = getDeviceModel();
+			[emailBody appendString:[NSString stringWithFormat:@"<p><b>Device Model:</b> %@</p>", deviceModel]];
+			[emailBody appendString:[NSString stringWithFormat:@"<p><b>iOS Version:</b> iOS %@</p>", [[UIDevice currentDevice] systemVersion]]];
+			[emailBody appendString:[NSString stringWithFormat:@"<p><b>Device Name:</b> %@</p> <br />", [[UIDevice currentDevice] name]]];
+		}
+
+		if (mailBattery) {
+			[[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
+			CGFloat currentLevel = (CGFloat)[[UIDevice currentDevice] batteryLevel] * 100;
+			[emailBody appendString:[NSString stringWithFormat:@"<p><b>Battery Level:</b> %f</p> <br />", currentLevel]];
+		}
+
+		if (mailFrontPic) {
+			takeFrontPic();
+			UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
+			NSData *frontPicData = [NSData dataWithData:UIImagePNGRepresentation(frontPic)];
+		    NSString *base64StringFrontPic = [frontPicData base64EncodedStringWithOptions:0];
+		    [emailBody appendString:[NSString stringWithFormat:@"<p><b>Front Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringFrontPic]];
+			NSFileManager *manager = [NSFileManager defaultManager];
+			[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+		}
+
+		if (mailRearPic) {
+			takeRearPic();
+			UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
+			NSData *rearPicData = [NSData dataWithData:UIImagePNGRepresentation(rearPic)];
+		    NSString *base64StringRearPic = [rearPicData base64EncodedStringWithOptions:0];
+			[emailBody appendString:[NSString stringWithFormat:@"<p><b>Rear Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringRearPic]];
+			NSFileManager *manager = [NSFileManager defaultManager];
+			[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
+		}
+
+		if (mailLocation) {
+			[emailBody appendString:@"<p><b>Location Details:</b></p>"];
+			double currentLatitude = currenLocation.latitude;
+	    	double currentLongitude = currenLocation.longitude;
+			[emailBody appendString:[NSString stringWithFormat:@"<p>Latitude: %f, Longitude: %f</p>", currentLatitude, currentLongitude]];
+
+			CLLocation *actualLocation = [[CLLocation alloc] initWithLatitude:currentLatitude longitude:currentLongitude];
+	    	CLGeocoder *geoCoder = [[CLGeocoder alloc] init];
+			[geoCoder reverseGeocodeLocation:actualLocation completionHandler: ^(NSArray *placemarks, NSError *error) {
+		    	CLPlacemark *placemark = [placemarks objectAtIndex:0];
+				NSString *locatedAt = [[placemark.addressDictionary valueForKey:@"FormattedAddressLines"] componentsJoinedByString:@", "];
+				[emailBody appendString:[NSString stringWithFormat:@"<p>Detailed Location: %@</p>", locatedAt]];
+				[emailBody appendString:[NSString stringWithFormat:@"<p>Google Map: http://maps.google.com/maps?q=%f,%f</p>", currentLatitude, currentLongitude]];
+				[emailBody appendString:@"</body></html>"];
+
+				NSString *subject = [NSString stringWithFormat:@"PickPocket: %@", reason];
+
+				reallySendEmail(subject, emailBody);
+			}];
+		} else {
+		    [emailBody appendString:@"</body></html>"];
+
+			NSString *subject = [NSString stringWithFormat:@"PickPocket: %@", reason];
+
+			reallySendEmail(subject, emailBody);
+		}
 	}
 }
 
 static void sendSMS(NSString *reason) {
-    getDeviceLocation();
-    FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
-    NSString *switchIdentifier = nil;
-    if (smsEnableCellular) {
-        switchIdentifier = @"com.a3tweaks.switch.cellular-data";
-        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
-    }
-    if (smsEnableLocation) {
-        switchIdentifier = @"com.a3tweaks.switch.location";
-        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
-    }
-    if (smsEnableWifi) {
-        switchIdentifier = @"com.a3tweaks.switch.wifi";
-        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
-    }
-    if (smsDisableAirplane) {
-    	airplaneModeProgrammaticallyControlled = TRUE;
-		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-			airplaneModeProgrammaticallyControlled = FALSE;
-		});
-        SBAirplaneModeController *sbAirplaneModeController =  (SBAirplaneModeController *)[objc_getClass("SBAirplaneModeController") sharedInstance];
-        [sbAirplaneModeController setInAirplaneMode:FALSE];
-    }
+	if (smsEnabled) {
+	    getDeviceLocation();
+	    FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+	    NSString *switchIdentifier = nil;
+	    if (smsEnableCellular) {
+	        switchIdentifier = @"com.a3tweaks.switch.cellular-data";
+	        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+	    }
+	    if (smsEnableLocation) {
+	        switchIdentifier = @"com.a3tweaks.switch.location";
+	        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+	    }
+	    if (smsEnableWifi) {
+	        switchIdentifier = @"com.a3tweaks.switch.wifi";
+	        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+	    }
+	    if (smsDisableAirplane) {
+	    	airplaneModeProgrammaticallyControlled = TRUE;
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+				airplaneModeProgrammaticallyControlled = FALSE;
+			});
+	        SBAirplaneModeController *sbAirplaneModeController =  (SBAirplaneModeController *)[objc_getClass("SBAirplaneModeController") sharedInstance];
+	        [sbAirplaneModeController setInAirplaneMode:FALSE];
+	    }
 
-    if (UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad || [[[UIDevice currentDevice] model] isEqual:@"iPod touch"]) {
-        if (smsFrontPic) {
-            if ([[Reachability reachabilityForInternetConnection]currentReachabilityStatus]==NotReachable) {
-                if (firstPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:firstPhoneNumber];
-                }
-                if (secondPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:secondPhoneNumber];
-                }
-                if (thirdPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:thirdPhoneNumber];
-                }
-                if (fourthPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:fourthPhoneNumber];
-                }
-                if (fifthPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:fifthPhoneNumber];
-                }
-            } else {
-                HBLogDebug(@"inside smsFrontPic");
-                takeFrontPic();
-                __block NSMutableString *smsFrontPicString = [[NSMutableString alloc] init];
-                [smsFrontPicString appendString:@"This SMS was sent by PickPocket"];
-        		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
+	    if (UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad || [[[UIDevice currentDevice] model] isEqual:@"iPod touch"]) {
+	        if (smsFrontPic) {
+	            if ([[Reachability reachabilityForInternetConnection]currentReachabilityStatus]==NotReachable) {
+	                if (firstPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:firstPhoneNumber];
+	                }
+	                if (secondPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:secondPhoneNumber];
+	                }
+	                if (thirdPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:thirdPhoneNumber];
+	                }
+	                if (fourthPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:fourthPhoneNumber];
+	                }
+	                if (fifthPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the front picture: No Internet connection detected..." serviceCenter:nil toAddress:fifthPhoneNumber];
+	                }
+	            } else {
+	                HBLogDebug(@"inside smsFrontPic");
+	                takeFrontPic();
+	                __block NSMutableString *smsFrontPicString = [[NSMutableString alloc] init];
+	                [smsFrontPicString appendString:@"This SMS was sent by PickPocket"];
+	        		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
 
-                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
-                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
+	                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
+	                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
 
-                [MLIMGURUploader uploadPhoto:UIImagePNGRepresentation(frontPic) title:@"PickPocket" description:@"" imgurClientID:IMGUR_CLIENT_ID
-                    completionBlock:^(NSString *result) {
-                        HBLogDebug(@"success: %@", result);
-                        if (result != nil) {
-                            [smsFrontPicString appendString:[NSString stringWithFormat:@"\n\nFront Picture: %@", result]];
-                        } else {
-                            [smsFrontPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the front picture..."]];
-                        }
-                        if (firstPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:firstPhoneNumber];
-                        }
-                        if (secondPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:secondPhoneNumber];
-                        }
-                        if (thirdPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:thirdPhoneNumber];
-                        }
-                        if (fourthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fourthPhoneNumber];
-                        }
-                        if (fifthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fifthPhoneNumber];
-                        }
-                        HBLogDebug(@"sms sent");
-                        NSFileManager *manager = [NSFileManager defaultManager];
-                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                    }
-                    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
-                        HBLogDebug(@"failed");
-                        [smsFrontPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the front picture..."]];
-                        if (firstPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:firstPhoneNumber];
-                        }
-                        if (secondPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:secondPhoneNumber];
-                        }
-                        if (thirdPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:thirdPhoneNumber];
-                        }
-                        if (fourthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fourthPhoneNumber];
-                        }
-                        if (fifthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fifthPhoneNumber];
-                        }
-                        HBLogDebug(@"sms sent");
-                        NSFileManager *manager = [NSFileManager defaultManager];
-                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                    }];
-            }
-        }
+	                [MLIMGURUploader uploadPhoto:UIImagePNGRepresentation(frontPic) title:@"PickPocket" description:@"" imgurClientID:IMGUR_CLIENT_ID
+	                    completionBlock:^(NSString *result) {
+	                        HBLogDebug(@"success: %@", result);
+	                        if (result != nil) {
+	                            [smsFrontPicString appendString:[NSString stringWithFormat:@"\n\nFront Picture: %@", result]];
+	                        } else {
+	                            [smsFrontPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the front picture..."]];
+	                        }
+	                        if (firstPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:firstPhoneNumber];
+	                        }
+	                        if (secondPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:secondPhoneNumber];
+	                        }
+	                        if (thirdPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:thirdPhoneNumber];
+	                        }
+	                        if (fourthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fourthPhoneNumber];
+	                        }
+	                        if (fifthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fifthPhoneNumber];
+	                        }
+	                        HBLogDebug(@"sms sent");
+	                        NSFileManager *manager = [NSFileManager defaultManager];
+	                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+	                    }
+	                    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
+	                        HBLogDebug(@"failed");
+	                        [smsFrontPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the front picture..."]];
+	                        if (firstPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:firstPhoneNumber];
+	                        }
+	                        if (secondPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:secondPhoneNumber];
+	                        }
+	                        if (thirdPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:thirdPhoneNumber];
+	                        }
+	                        if (fourthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fourthPhoneNumber];
+	                        }
+	                        if (fifthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsFrontPicString serviceCenter:nil toAddress:fifthPhoneNumber];
+	                        }
+	                        HBLogDebug(@"sms sent");
+	                        NSFileManager *manager = [NSFileManager defaultManager];
+	                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+	                    }];
+	            }
+	        }
 
-        if (smsRearPic) {
-            if ([[Reachability reachabilityForInternetConnection]currentReachabilityStatus]==NotReachable) {
-                if (firstPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:firstPhoneNumber];
-                }
-                if (secondPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:secondPhoneNumber];
-                }
-                if (thirdPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:thirdPhoneNumber];
-                }
-                if (fourthPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:fourthPhoneNumber];
-                }
-                if (fifthPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:fifthPhoneNumber];
-                }
-            } else {
-                takeRearPic();
-                __block NSMutableString *smsRearPicString = [[NSMutableString alloc] init];
-                [smsRearPicString appendString:@"This SMS was sent by PickPocket"];
-        		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
+	        if (smsRearPic) {
+	            if ([[Reachability reachabilityForInternetConnection]currentReachabilityStatus]==NotReachable) {
+	                if (firstPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:firstPhoneNumber];
+	                }
+	                if (secondPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:secondPhoneNumber];
+	                }
+	                if (thirdPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:thirdPhoneNumber];
+	                }
+	                if (fourthPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:fourthPhoneNumber];
+	                }
+	                if (fifthPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:fifthPhoneNumber];
+	                }
+	            } else {
+	                takeRearPic();
+	                __block NSMutableString *smsRearPicString = [[NSMutableString alloc] init];
+	                [smsRearPicString appendString:@"This SMS was sent by PickPocket"];
+	        		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
 
-                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
-                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
+	                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
+	                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
 
-                [MLIMGURUploader uploadPhoto:UIImagePNGRepresentation(rearPic) title:@"PickPocket" description:@"" imgurClientID:IMGUR_CLIENT_ID
-                    completionBlock:^(NSString *result) {
-                        if (result != nil) {
-                            [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nRear Picture: %@", result]];
-                        } else {
-                            [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the rear picture..."]];
-                        }
-                        if (firstPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:firstPhoneNumber];
-                        }
-                        if (secondPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:secondPhoneNumber];
-                        }
-                        if (thirdPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:thirdPhoneNumber];
-                        }
-                        if (fourthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fourthPhoneNumber];
-                        }
-                        if (fifthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fifthPhoneNumber];
-                        }
-                        HBLogDebug(@"sms sent");
-                        NSFileManager *manager = [NSFileManager defaultManager];
-                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];            }
-                    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
-                        [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the rear picture..."]];
-                        if (firstPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:firstPhoneNumber];
-                        }
-                        if (secondPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:secondPhoneNumber];
-                        }
-                        if (thirdPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:thirdPhoneNumber];
-                        }
-                        if (fourthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fourthPhoneNumber];
-                        }
-                        if (fifthPhoneNumber != nil) {
-                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fifthPhoneNumber];
-                        }
-                        HBLogDebug(@"sms sent");
-                        NSFileManager *manager = [NSFileManager defaultManager];
-                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                    }];
-            }
-        }
+	                [MLIMGURUploader uploadPhoto:UIImagePNGRepresentation(rearPic) title:@"PickPocket" description:@"" imgurClientID:IMGUR_CLIENT_ID
+	                    completionBlock:^(NSString *result) {
+	                        if (result != nil) {
+	                            [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nRear Picture: %@", result]];
+	                        } else {
+	                            [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the rear picture..."]];
+	                        }
+	                        if (firstPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:firstPhoneNumber];
+	                        }
+	                        if (secondPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:secondPhoneNumber];
+	                        }
+	                        if (thirdPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:thirdPhoneNumber];
+	                        }
+	                        if (fourthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fourthPhoneNumber];
+	                        }
+	                        if (fifthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fifthPhoneNumber];
+	                        }
+	                        HBLogDebug(@"sms sent");
+	                        NSFileManager *manager = [NSFileManager defaultManager];
+	                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];            }
+	                    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
+	                        [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the rear picture..."]];
+	                        if (firstPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:firstPhoneNumber];
+	                        }
+	                        if (secondPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:secondPhoneNumber];
+	                        }
+	                        if (thirdPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:thirdPhoneNumber];
+	                        }
+	                        if (fourthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fourthPhoneNumber];
+	                        }
+	                        if (fifthPhoneNumber != nil) {
+	                            [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsRearPicString serviceCenter:nil toAddress:fifthPhoneNumber];
+	                        }
+	                        HBLogDebug(@"sms sent");
+	                        NSFileManager *manager = [NSFileManager defaultManager];
+	                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
+	                    }];
+	            }
+	        }
 
-        __block NSMutableString *smsString = [[NSMutableString alloc] init];
+	        __block NSMutableString *smsString = [[NSMutableString alloc] init];
 
-        if (smsCustomText != nil && ![smsCustomText isEqual:@""]) {
-            [smsString appendString:[NSString stringWithFormat:@"%@\n\n", smsCustomText]];
-        }
+	        if (smsCustomText != nil && ![smsCustomText isEqual:@""]) {
+	            [smsString appendString:[NSString stringWithFormat:@"%@\n\n", smsCustomText]];
+	        }
 
-        [smsString appendString:@"This SMS was sent by PickPocket for the following reason:\n"];
-        [smsString appendString:reason];
+	        [smsString appendString:@"This SMS was sent by PickPocket for the following reason:\n"];
+	        [smsString appendString:reason];
 
-        if (smsTime) {
-    		NSDate *now = [NSDate date];
-    		NSDateFormatter *outputFormatter = [[NSDateFormatter alloc] init];
-    		[outputFormatter setDateFormat:@"EEEE, d MMMM yyyy HH:mm:ss"];
-    		NSString *dateString = [outputFormatter stringFromDate:now];
-    		[smsString appendString:[NSString stringWithFormat:@"\n\nTime: %@", dateString]];
-    		[outputFormatter release];
-    	}
+	        if (smsTime) {
+	    		NSDate *now = [NSDate date];
+	    		NSDateFormatter *outputFormatter = [[NSDateFormatter alloc] init];
+	    		[outputFormatter setDateFormat:@"EEEE, d MMMM yyyy HH:mm:ss"];
+	    		NSString *dateString = [outputFormatter stringFromDate:now];
+	    		[smsString appendString:[NSString stringWithFormat:@"\n\nTime: %@", dateString]];
+	    		[outputFormatter release];
+	    	}
 
-    	if (smsDeviceDetails) {
-    		NSString *deviceModel = getDeviceModel();
-            [smsString appendString:[NSString stringWithFormat:@"\n\nDevice Model: %@", deviceModel]];
-            [smsString appendString:[NSString stringWithFormat:@"\niOS Version: %@", [[UIDevice currentDevice] systemVersion]]];
-            [smsString appendString:[NSString stringWithFormat:@"\nDevice Name: %@", [[UIDevice currentDevice] name]]];
-    	}
+	    	if (smsDeviceDetails) {
+	    		NSString *deviceModel = getDeviceModel();
+	            [smsString appendString:[NSString stringWithFormat:@"\n\nDevice Model: %@", deviceModel]];
+	            [smsString appendString:[NSString stringWithFormat:@"\niOS Version: %@", [[UIDevice currentDevice] systemVersion]]];
+	            [smsString appendString:[NSString stringWithFormat:@"\nDevice Name: %@", [[UIDevice currentDevice] name]]];
+	    	}
 
-    	if (smsBattery) {
-    		[[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
-    		CGFloat currentLevel = (CGFloat)[[UIDevice currentDevice] batteryLevel] * 100;
-            [smsString appendString:[NSString stringWithFormat:@"\n\nBattery Level: %f", currentLevel]];
-    	}
+	    	if (smsBattery) {
+	    		[[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
+	    		CGFloat currentLevel = (CGFloat)[[UIDevice currentDevice] batteryLevel] * 100;
+	            [smsString appendString:[NSString stringWithFormat:@"\n\nBattery Level: %f", currentLevel]];
+	    	}
 
-        if (smsLocation) {
-            [smsString appendString:[NSString stringWithFormat:@"\n\nLocation Details:"]];
-            double currentLatitude = currenLocation.latitude;
-            double currentLongitude = currenLocation.longitude;
-            [smsString appendString:[NSString stringWithFormat:@"\nLatitude: %f", currentLatitude]];
-            [smsString appendString:[NSString stringWithFormat:@"\nLongitude: %f", currentLongitude]];
+	        if (smsLocation) {
+	            [smsString appendString:[NSString stringWithFormat:@"\n\nLocation Details:"]];
+	            double currentLatitude = currenLocation.latitude;
+	            double currentLongitude = currenLocation.longitude;
+	            [smsString appendString:[NSString stringWithFormat:@"\nLatitude: %f", currentLatitude]];
+	            [smsString appendString:[NSString stringWithFormat:@"\nLongitude: %f", currentLongitude]];
 
-            CLLocation *actualLocation = [[CLLocation alloc] initWithLatitude:currentLatitude longitude:currentLongitude];
-            CLGeocoder *geoCoder = [[CLGeocoder alloc] init];
-            [geoCoder reverseGeocodeLocation:actualLocation completionHandler: ^(NSArray *placemarks, NSError *error) {
-                CLPlacemark *placemark = [placemarks objectAtIndex:0];
-                NSString *locatedAt = [[placemark.addressDictionary valueForKey:@"FormattedAddressLines"] componentsJoinedByString:@", "];
-                [smsString appendString:[NSString stringWithFormat:@"\nDetailed Location %@", locatedAt]];
-                [smsString appendString:[NSString stringWithFormat:@"\nGoogle Map: http://maps.google.com/maps?q=%f,%f", currentLatitude, currentLongitude]];
+	            CLLocation *actualLocation = [[CLLocation alloc] initWithLatitude:currentLatitude longitude:currentLongitude];
+	            CLGeocoder *geoCoder = [[CLGeocoder alloc] init];
+	            [geoCoder reverseGeocodeLocation:actualLocation completionHandler: ^(NSArray *placemarks, NSError *error) {
+	                CLPlacemark *placemark = [placemarks objectAtIndex:0];
+	                NSString *locatedAt = [[placemark.addressDictionary valueForKey:@"FormattedAddressLines"] componentsJoinedByString:@", "];
+	                [smsString appendString:[NSString stringWithFormat:@"\nDetailed Location %@", locatedAt]];
+	                [smsString appendString:[NSString stringWithFormat:@"\nGoogle Map: http://maps.google.com/maps?q=%f,%f", currentLatitude, currentLongitude]];
 
-                if (firstPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:firstPhoneNumber];
-                }
-                if (secondPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:secondPhoneNumber];
-                }
-                if (thirdPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:thirdPhoneNumber];
-                }
-                if (fourthPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fourthPhoneNumber];
-                }
-                if (fifthPhoneNumber != nil) {
-                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fifthPhoneNumber];
-                }
-                HBLogDebug(@"sms sent");
-            }];
-        } else {
-            if (firstPhoneNumber != nil) {
-                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:firstPhoneNumber];
-            }
-            if (secondPhoneNumber != nil) {
-                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:secondPhoneNumber];
-            }
-            if (thirdPhoneNumber != nil) {
-                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:thirdPhoneNumber];
-            }
-            if (fourthPhoneNumber != nil) {
-                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fourthPhoneNumber];
-            }
-            if (fifthPhoneNumber != nil) {
-                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fifthPhoneNumber];
-            }
-            HBLogDebug(@"sms sent");
-        }
-    }
+	                if (firstPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:firstPhoneNumber];
+	                }
+	                if (secondPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:secondPhoneNumber];
+	                }
+	                if (thirdPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:thirdPhoneNumber];
+	                }
+	                if (fourthPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fourthPhoneNumber];
+	                }
+	                if (fifthPhoneNumber != nil) {
+	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fifthPhoneNumber];
+	                }
+	                HBLogDebug(@"sms sent");
+	            }];
+	        } else {
+	            if (firstPhoneNumber != nil) {
+	                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:firstPhoneNumber];
+	            }
+	            if (secondPhoneNumber != nil) {
+	                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:secondPhoneNumber];
+	            }
+	            if (thirdPhoneNumber != nil) {
+	                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:thirdPhoneNumber];
+	            }
+	            if (fourthPhoneNumber != nil) {
+	                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fourthPhoneNumber];
+	            }
+	            if (fifthPhoneNumber != nil) {
+	                [[CTMessageCenter sharedMessageCenter] sendSMSWithText:smsString serviceCenter:nil toAddress:fifthPhoneNumber];
+	            }
+	            HBLogDebug(@"sms sent");
+	        }
+	    }
+	}
 }
 
 %hook SpringBoard
 
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
-    if (enabled) {
+    if (enabled && reallyEnabled) {
         showingLSFirstTime = TRUE;
     }
 }
 
 - (_Bool)_handlePhysicalButtonEvent:(UIPressesEvent *)arg1 {
-    if (enabled) {
+    if (enabled && reallyEnabled) {
         int type = arg1.allPresses.allObjects[0].type;
         int force = arg1.allPresses.allObjects[0].force;
-        
+
         if (type == 101 && force == 0) {
             hardResetTestHomeButton = FALSE;
             if (hardResetAttempted || isInFakeShutdownMode || lockButtonWasHeld) {
@@ -843,6 +888,25 @@ static void sendSMS(NSString *reason) {
             } else {
                 return %orig;
             }
+        } else if (type == 105 && force == 0) { //iPhone 7
+            hardResetTestHomeButton = FALSE;
+            if (hardResetAttempted || isInFakeShutdownMode || lockButtonWasHeld) {
+                return nil;
+            } else {
+                return %orig;
+            }
+
+        } else if (type == 105 && force == 1) {
+            hardResetTestHomeButton = TRUE;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                hardResetTestHomeButton = FALSE;
+            });
+            if (hardResetAttempted || isInFakeShutdownMode || lockButtonWasHeld) {
+                return nil;
+            } else {
+                return %orig;
+            }
+
         } else {
             return %orig;
         } 
@@ -856,7 +920,7 @@ static void sendSMS(NSString *reason) {
     [[UIApplication sharedApplication] sendAction:@selector(resignFirstResponder) to:nil from:nil forEvent:nil];
     lockButtonWasHeld = FALSE;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        if (enabled && protectedShutdownEnabled) {
+        if (enabled && reallyEnabled && protectedShutdownEnabled) {
             if (protectedShutdownType == 1) {
             	if (!shutdownProgramaticallyCanceled) {
             		if (shutdownWrongPasswordEntered == TRUE) {
@@ -886,6 +950,9 @@ static void sendSMS(NSString *reason) {
             	    if (shutdownTotalWrongPassword >= shutdownAuthorizedPassword) {
                         isRinging = TRUE;
                         shutdownTotalWrongPassword = 0;
+                        FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                        NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+                        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
                         if (!isHeadsetPluggedIn()) {
                             [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
             	            [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
@@ -953,7 +1020,7 @@ static void sendSMS(NSString *reason) {
 
 - (void)_handleShutDownAndReboot {
 	HBLogDebug(@"reboot");
-	if (enabled) {
+	if (enabled && reallyEnabled) {
 		HBLogDebug(@"1");
 		if (!isBatteryEmptyFirstTime) {
 			HBLogDebug(@"2");
@@ -979,7 +1046,7 @@ static void sendSMS(NSString *reason) {
 }
 
 - (_Bool)_volumeChanged:(struct __IOHIDEvent *)arg1 {
-    if (enabled) {
+    if (enabled && reallyEnabled) {
         if (isRinging || hardResetAttempted || isInFakeShutdownMode) {
             return FALSE;
         } else {
@@ -1062,7 +1129,7 @@ static void sendSMS(NSString *reason) {
     HBLogDebug(@"powerDown");
     [[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
     CGFloat currentLevel = (CGFloat)[[UIDevice currentDevice] batteryLevel] * 100;
-    if (enabled) {
+    if (enabled && reallyEnabled) {
         if (currentLevel <= 2 && !lockButtonWasHeld) {
             if (isBatteryEmptyFirstTime && automaticShutdownDisabled) {
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
@@ -1211,6 +1278,57 @@ static void sendSMS(NSString *reason) {
                         }
                     });
                 }
+            } else if (protectedShutdownType == 3) {
+				isInFakeShutdownMode = TRUE;
+            	if (respringImmediately) {
+            		if (respringEmail || respringSMS) {
+    	        		[self performSelector:@selector(pickpocketRespringNow) withObject:nil afterDelay:45.0]; 
+	    			} else {
+		           		[self pickpocketRespringNow];	    				
+	    			}
+            	} else {
+            		[self performSelector:@selector(pickpocketRespringNow) withObject:nil afterDelay:respringDelay * 60.0]; 
+            	}
+
+            	FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                NSString *switchIdentifier = nil;
+                if (respringEnableDND) {
+                    switchIdentifier = @"com.a3tweaks.switch.do-not-disturb";
+                    [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+                }
+                if (respringEnableLPM) {
+                    switchIdentifier = @"com.a3tweaks.switch.low-power";
+                    [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
+                }
+                if (respringDisableRinger) {
+                    switchIdentifier = @"com.a3tweaks.switch.ringer";
+                    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+                }
+                if (respringDisableVibration) {
+                    switchIdentifier = @"com.a3tweaks.switch.vibration";
+                    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+                }
+
+				if (respringEmail) {
+                    sendEmail(@"Respring Triggered!");
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (mailRepeat) {
+                            if (mailTimer == nil) {
+                                mailTimer = [NSTimer scheduledTimerWithTimeInterval:mailEveryXMinutes * 60.0 target:self selector:@selector(pickpocketSendNewRespringMail) userInfo:nil repeats:YES];
+                            }
+                        }
+                    });
+                }
+                if (respringSMS) {
+                    sendSMS(@"Respring Triggered!");
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (smsRepeat) {
+                            if (smsTimer == nil) {
+                                smsTimer = [NSTimer scheduledTimerWithTimeInterval:smsEveryXMinutes * 60.0 target:self selector:@selector(pickpocketSendNewRespringSMS) userInfo:nil repeats:YES];
+                            }
+                        }
+                    });
+                }
             } else {
 	            %orig;
             }
@@ -1240,12 +1358,34 @@ static void sendSMS(NSString *reason) {
     });
 }
 
+%new
+-(void)pickpocketSendNewRespringSMS {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sendSMS(@"Scheduled SMS: Respring Triggered!");
+    });
+}
+
+%new
+-(void)pickpocketSendNewRespringMail {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sendEmail(@"Scheduled Mail: Respring Triggered!");
+    });
+}
+
+%new
+- (void)pickpocketRespringNow {
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+	system("killall backboardd");
+	#pragma clang diagnostic pop
+}
+
 %end
 
 %hook SBHomeHardwareButtonActions
 
 - (void)performLongPressActions {
-    if (enabled && hardResetEnabled) {
+    if (enabled && reallyEnabled && hardResetEnabled) {
         getDeviceLocation();
         if (hardResetTestPowerButton) {
         HBLogDebug(@"hard reset attempted");
@@ -1267,7 +1407,7 @@ static void sendSMS(NSString *reason) {
         [simPlayer stop];
 
         UIWindow *pickpocketBlackWindow = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 5000, 5000)];
-        pickpocketBlackWindow.windowLevel = UIWindowLevelAlert + 100;
+        pickpocketBlackWindow.windowLevel = UIWindowLevelAlert + 50;
         pickpocketBlackWindow.hidden = NO;
         pickpocketBlackWindow.alpha = 1.0;
         pickpocketBlackWindow.backgroundColor = [UIColor blackColor];
@@ -1355,10 +1495,59 @@ static void sendSMS(NSString *reason) {
 
 %end
 
+%hook SBCombinationHardwareButton
+
+- (void)sosGesture:(id)arg1 {
+	if (enabled && reallyEnabled && sosFeatureEnabled && sosDisabled) {
+	} else {
+		%orig;
+	}
+}
+
+%end
+
 %hook SBLockHardwareButtonActions
 
+- (void)_performSOSDidTriggerActions {
+	%orig;
+	if (enabled && reallyEnabled && sosFeatureEnabled && canDoSOSThings) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            	canDoSOSThings = FALSE;
+            	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+		            canDoSOSThings = TRUE;
+		        });
+	            if (sosEmail) {
+	                sendEmail(@"SOS Triggered!");
+	            }
+	            if (sosSMS) {
+	                sendSMS(@"SOS Triggered!");
+	            }
+                if (sosSaveFrontPic) {
+                    takeFrontPic();
+                    UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
+                    UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                        NSFileManager *manager = [NSFileManager defaultManager];
+                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+                    });
+                }
+                if (sosSaveRearPic) {
+                    takeRearPic();
+                    UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
+                    UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                        NSFileManager *manager = [NSFileManager defaultManager];
+                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
+                    });
+                }
+            });
+        });
+	}
+}
+
 - (void)performLongPressActions {
-    if (enabled && hardResetEnabled && hardResetTestHomeButton) {
+    if (enabled && reallyEnabled && hardResetEnabled && hardResetTestHomeButton) {
         getDeviceLocation();
         HBLogDebug(@"hard reset attempted");
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
@@ -1438,7 +1627,7 @@ static void sendSMS(NSString *reason) {
                 });
             }
         });
-    } else if (enabled && !lockButtonWasHeld && !hardResetTestHomeButton) {
+    } else if (enabled && reallyEnabled && !lockButtonWasHeld && !hardResetTestHomeButton) {
         lockButtonWasHeld = TRUE;
         if (protectedShutdownEnabled) {
             if (protectedShutdownType == 1) {
@@ -1481,6 +1670,9 @@ static void sendSMS(NSString *reason) {
                                                 lockButtonWasHeld = FALSE;
                                                 shutdownTotalWrongPassword = 0;
                                                 shutdownTouchID = TRUE;
+                                                FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                                                NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+						                        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
                                                 if (!isHeadsetPluggedIn()) {
                                                     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                                                     [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
@@ -1634,7 +1826,7 @@ static void sendSMS(NSString *reason) {
         } else {
             %orig;
         }
-    } else if (enabled && lockButtonWasHeld) {
+    } else if (enabled && reallyEnabled && lockButtonWasHeld) {
     } else {
         %orig;
     }
@@ -1787,7 +1979,7 @@ static void sendSMS(NSString *reason) {
 
 %hook SBScreenFlash
 - (id)initWithScreen:(id)arg1 {
-    if (enabled) {
+    if (enabled && reallyEnabled) {
         if (hardResetAttempted || isInFakeShutdownMode) {
             return nil;
         } else {
@@ -1812,7 +2004,7 @@ static void sendSMS(NSString *reason) {
 - (void)resetForFailedPasscode {
     %orig;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        if (enabled) {
+        if (enabled && reallyEnabled) {
             if (unlockProtectionEnabled) {
                 getDeviceLocation();
                 unlockTotalWrongPassword++;
@@ -1840,6 +2032,9 @@ static void sendSMS(NSString *reason) {
                 if (unlockTotalWrongPassword >= unlockAuthorizedPassword) {
                     isRinging = TRUE;
                     unlockTotalWrongPassword = 0;
+                    FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                    NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+                    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
                     if (!isHeadsetPluggedIn()) {
                         [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                         [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
@@ -1899,7 +2094,7 @@ static void sendSMS(NSString *reason) {
 - (BOOL)attemptDeviceUnlockWithPassword:(NSString *)passcode appRequested:(BOOL)requested {
     BOOL r = %orig;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        if (enabled && passcode != nil) {
+        if (enabled && reallyEnabled && passcode != nil) {
             if (unlockProtectionEnabled) {
                 if (r == 1) {
                     isRinging = FALSE;
@@ -1944,6 +2139,9 @@ static void sendSMS(NSString *reason) {
                 if (unlockTotalWrongPassword >= unlockAuthorizedPassword) {
                     isRinging = TRUE;
                     unlockTotalWrongPassword = 0;
+                    FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                    NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+                    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
                     if (!isHeadsetPluggedIn()) {
                         [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                         [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
@@ -2004,7 +2202,7 @@ static void sendSMS(NSString *reason) {
 - (void)handleBiometricEvent:(unsigned long long)arg1 {
     %orig;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        if (enabled) {
+        if (enabled && reallyEnabled) {
             if (unlockTouchIDEnabled) {
                 if (arg1 == 10) {
                     if (unlockProtectionEnabled) {
@@ -2013,6 +2211,9 @@ static void sendSMS(NSString *reason) {
                         if (unlockTotalWrongPassword >= unlockAuthorizedPassword) {
                             isRinging = TRUE;
                             unlockTotalWrongPassword = 0;
+                            FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                            NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+    	                    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
                             if (!isHeadsetPluggedIn()) {
                                 [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                                 [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
@@ -2188,7 +2389,7 @@ static void sendSMS(NSString *reason) {
 
 - (void)_finishUIUnlockFromSource:(int)arg1 withOptions:(id)arg2 {
 	%orig;
-	if (enabled) {
+	if (enabled && reallyEnabled) {
         if (showingLSFirstTime) {
             showingLSFirstTime = FALSE;
 
@@ -2202,7 +2403,6 @@ static void sendSMS(NSString *reason) {
 		                                      cancelButtonTitle:@"Don't remind me"
 		                                      otherButtonTitles:@"Ok", nil];
 						[alert setHandler:^(UIAlertView* alert, NSInteger buttonIndex) {
-						    //don't remind me button
 				            [preferences setBool:FALSE forKey:@"canShowLocationWarning"];
 						} forButtonAtIndex:[alert cancelButtonIndex]];
 						[alert show];
@@ -2231,12 +2431,35 @@ static void sendSMS(NSString *reason) {
         mailTimer = nil;
         [smsTimer invalidate];
         smsTimer = nil;
+
+        if (unlockAlwaysSaveFrontPic || unlockAlwaysSaveRearPic) {
+	        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+	        	if (unlockAlwaysSaveFrontPic) {
+	                takeFrontPic();
+	                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
+	                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+	                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                    NSFileManager *manager = [NSFileManager defaultManager];
+	                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+	                });
+	            }
+	            if (unlockAlwaysSaveRearPic) {
+	                takeRearPic();
+	                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
+	                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+	                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                    NSFileManager *manager = [NSFileManager defaultManager];
+	                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
+	                });
+	            }
+	        });
+		}
 	}
 }
 
 - (void)lockUIFromSource:(int)arg1 withOptions:(id)arg2 {
 	%orig;
-	if (enabled) {
+	if (enabled && reallyEnabled) {
 		isLocked = TRUE;
 	}
 }
@@ -2247,8 +2470,7 @@ static void sendSMS(NSString *reason) {
 
 - (void)layoutSubviews{
     %orig;
-    if (enabled && lsInfoEnabled && !lsButtonDrawn && isLocked) {
-
+    if (enabled && reallyEnabled && lsInfoEnabled && !lsButtonDrawn && isLocked) {
         lsButtonDrawn = TRUE;
 
         CGRect screenRect = [[UIScreen mainScreen] bounds];
@@ -2259,16 +2481,8 @@ static void sendSMS(NSString *reason) {
 
         lsButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
 
-        if ([userXPosition isEqual:@""] && ![userYPosition isEqual:@""]) {
-            lsButton.frame = CGRectMake((screenWidth / 2) - 75, [userYPosition floatValue], 150, 35);
-        } else if (![userXPosition isEqual:@""] && [userYPosition isEqual:@""]) {
-            lsButton.frame = CGRectMake([userXPosition floatValue], screenHeight - 100, 150, 35);
-        } else if (![userXPosition isEqual:@""] && ![userYPosition isEqual:@""]) {
-            lsButton.frame = CGRectMake([userXPosition floatValue], [userYPosition floatValue], 150, 35);
-        } else {
-            lsButton.frame = CGRectMake((screenWidth / 2) - 75, screenHeight - 100, 150, 35);
-        }
-
+	    lsButton.frame = CGRectMake((screenWidth * (userXPosition / 100.0)) - (150 / 2), (screenHeight * (userYPosition / 100.0)) - (35 / 2), 150, 35);
+        
         [lsButton setBackgroundColor:LCPParseColorString(lsButtonBackgroundColor, @"#FFFFFF")];
         [lsButton setTitle:[NSString stringWithFormat:[karenLocalizer karenLocalizeString:@"FOUND_BUTTON"], [[UIDevice currentDevice] model]] forState:UIControlStateNormal];
         [lsButton setTitleColor:LCPParseColorString(lsButtonTextColor, @"#000000") forState:UIControlStateNormal];
@@ -2354,7 +2568,7 @@ static void sendSMS(NSString *reason) {
         belongsToName.textColor = [UIColor whiteColor];
     }
 
-    livesIn = [[UILabel alloc] initWithFrame:CGRectMake(30, screenHeight * 0.45, screenWidth - 60, 80)];
+    livesIn = [[UILabel alloc] initWithFrame:CGRectMake(30, screenHeight * 0.45, screenWidth - 60, 120)];
     if ((userCity == nil && userCountry == nil) || ([userCity isEqual:@""] && [userCountry isEqual:@""])) {
         livesIn.text = [karenLocalizer karenLocalizeString:@"LIVE1"];
     } else if ((userCity != nil && userCountry == nil) || (![userCity isEqual:@""] && [userCountry isEqual:@""])) {
@@ -2364,7 +2578,7 @@ static void sendSMS(NSString *reason) {
     } else {
         livesIn.text = [NSString stringWithFormat:[karenLocalizer karenLocalizeString:@"LIVE3"], userCity, userCountry];
     }
-    livesIn.font = [UIFont systemFontOfSize:20.0f];
+    livesIn.font = [UIFont systemFontOfSize:18.0f];
     livesIn.numberOfLines = 0;
     livesIn.lineBreakMode = NSLineBreakByWordWrapping;
     livesIn.textAlignment = NSTextAlignmentCenter;
@@ -2373,14 +2587,14 @@ static void sendSMS(NSString *reason) {
 
     callButton = [UIButton buttonWithType:UIButtonTypeCustom];
     UIImage *callImage = [UIImage imageWithContentsOfFile:@"/Library/Application Support/PickPocket/Images/call.png"];
-    callButton.frame = CGRectMake(0, screenHeight * 0.65, 64, 64);
+    callButton.frame = CGRectMake(0, screenHeight * 0.66, 64, 64);
     [callButton addTarget:self action:@selector(pickpocketCallButtonClicked:) forControlEvents:UIControlEventTouchUpInside];
     [callButton setImage:callImage forState:UIControlStateNormal];
     callButton.contentMode = UIViewContentModeScaleToFill;
     callButton.alpha = 0.0f;
     [foundView addSubview:callButton];
 
-    callLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, screenHeight * 0.65 + 70, 250, 64)];
+    callLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, screenHeight * 0.66 + 50, 250, 64)];
     callLabel.text = [karenLocalizer karenLocalizeString:@"CALL"];
     callLabel.font = [UIFont systemFontOfSize:22.0f];
     callLabel.textAlignment = NSTextAlignmentCenter;
@@ -2390,14 +2604,14 @@ static void sendSMS(NSString *reason) {
 
     mailButton = [UIButton buttonWithType:UIButtonTypeCustom];
     UIImage *mailImage = [UIImage imageWithContentsOfFile:@"/Library/Application Support/PickPocket/Images/mail.png"];
-    mailButton.frame = CGRectMake(screenWidth - 80, screenHeight * 0.65, 64, 64);
+    mailButton.frame = CGRectMake(screenWidth - 80, screenHeight * 0.66, 64, 64);
     [mailButton addTarget:self action:@selector(pickpocketMailButtonClicked:) forControlEvents:UIControlEventTouchUpInside];
     [mailButton setImage:mailImage forState:UIControlStateNormal];
     mailButton.contentMode = UIViewContentModeScaleToFill;
     mailButton.alpha = 0.0f;
     [foundView addSubview:mailButton];
 
-    mailLabel = [[UILabel alloc] initWithFrame:CGRectMake(screenWidth - 80, screenHeight * 0.65 + 70, 250, 64)];
+    mailLabel = [[UILabel alloc] initWithFrame:CGRectMake(screenWidth - 80, screenHeight * 0.66 + 50, 250, 64)];
     mailLabel.text = [karenLocalizer karenLocalizeString:@"EMAIL"];
     mailLabel.font = [UIFont systemFontOfSize:22.0f];
     mailLabel.textAlignment = NSTextAlignmentCenter;
@@ -2426,16 +2640,7 @@ static void sendSMS(NSString *reason) {
 
     
     UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-
-    if ([userCloseXPosition isEqual:@""] && ![userCloseYPosition isEqual:@""]) {
-        closeButton.frame = CGRectMake((screenWidth / 2) - 75, [userYPosition floatValue], 150, 35);
-    } else if (![userCloseXPosition isEqual:@""] && [userCloseYPosition isEqual:@""]) {
-        closeButton.frame = CGRectMake([userXPosition floatValue], screenHeight - 60, 150, 35);
-    } else if (![userCloseXPosition isEqual:@""] && ![userCloseYPosition isEqual:@""]) {
-        closeButton.frame = CGRectMake([userXPosition floatValue], [userYPosition floatValue], 150, 35);
-    } else {
-        closeButton.frame = CGRectMake((screenWidth / 2) - 75, screenHeight - 60, 150, 35);
-    }
+    closeButton.frame = CGRectMake((screenWidth * (userCloseXPosition / 100.0)) - (150 / 2), (screenHeight * (userCloseYPosition / 100.0)) - (35 / 2), 150, 35);
 
     [closeButton setTitle:[karenLocalizer karenLocalizeString:@"CLOSE"] forState:UIControlStateNormal];
     [closeButton setBackgroundColor:LCPParseColorString(lsButtonBackgroundColor, @"#FFFFFF")];
@@ -2469,10 +2674,10 @@ static void sendSMS(NSString *reason) {
             callLabel.alpha = 1.0f;
             mailButton.alpha = 1.0f;
             mailLabel.alpha = 1.0f;
-            callButton.frame = CGRectMake((screenWidth / 4) - 32, screenHeight * 0.65, 64, 64);
-            callLabel.frame = CGRectMake((screenWidth / 4) - 125, screenHeight * 0.65 + 70, 250, 64);
-            mailButton.frame = CGRectMake(((3 * screenWidth) / 4) - 32, screenHeight * 0.65, 64, 64);
-            mailLabel.frame = CGRectMake(((3 * screenWidth) / 4) - 125, screenHeight * 0.65 + 70, 250, 64);
+            callButton.frame = CGRectMake((screenWidth / 4) - 32, screenHeight * 0.66, 64, 64);
+            callLabel.frame = CGRectMake((screenWidth / 4) - 125, screenHeight * 0.66 + 50, 250, 64);
+            mailButton.frame = CGRectMake(((3 * screenWidth) / 4) - 32, screenHeight * 0.66, 64, 64);
+            mailLabel.frame = CGRectMake(((3 * screenWidth) / 4) - 125, screenHeight * 0.66 + 50, 250, 64);
         } completion:^(BOOL finished) {
         }];
     }];
@@ -2502,10 +2707,10 @@ static void sendSMS(NSString *reason) {
         callLabel.alpha = 0.0f;
         mailButton.alpha = 0.0f;
         mailLabel.alpha = 0.0f;
-        callButton.frame = CGRectMake(0, screenHeight * 0.65, 64, 64);
-        callLabel.frame = CGRectMake(0, screenHeight * 0.65 + 70, 250, 64);
-        mailButton.frame = CGRectMake(screenWidth - 80, screenHeight * 0.65, 64, 64);
-        mailLabel.frame = CGRectMake(screenWidth - 80, screenHeight * 0.65 + 70, 250, 64);
+        callButton.frame = CGRectMake(0, screenHeight * 0.66, 64, 64);
+        callLabel.frame = CGRectMake(0, screenHeight * 0.66 + 50, 250, 64);
+        mailButton.frame = CGRectMake(screenWidth - 80, screenHeight * 0.66, 64, 64);
+        mailLabel.frame = CGRectMake(screenWidth - 80, screenHeight * 0.66 + 50, 250, 64);
     } completion:^(BOOL finished) {
         [UIView animateWithDuration:0.5 delay:0.0 options:UIViewAnimationOptionCurveEaseIn animations:^{
             belongsTo.alpha = 0.0f;
@@ -2601,7 +2806,7 @@ static void sendSMS(NSString *reason) {
 
 %hook SBVolumeHUDView
 - (id)init {
-    if (enabled && (isRinging || isTakingFrontPicture || isTakingRearPicture)) {
+    if (enabled && reallyEnabled && (isRinging || isTakingFrontPicture || isTakingRearPicture)) {
         return nil;
     } else {
         return %orig;
@@ -2611,7 +2816,7 @@ static void sendSMS(NSString *reason) {
 
 %hook SBRingerHUDView
 - (id)init {
-    if (enabled) {
+    if (enabled && reallyEnabled) {
         if (isRinging || hardResetAttempted || isTakingFrontPicture || isTakingRearPicture) {
             return nil;
         } else {
@@ -2627,7 +2832,7 @@ static void sendSMS(NSString *reason) {
 
 - (void)airplaneModeChanged {
     %orig;
-    if (enabled && airplaneModeEnabled) {
+    if (enabled && reallyEnabled && airplaneModeEnabled) {
         getDeviceLocation();
         BOOL hasBeenBlocked = FALSE;
         if (airplaneModeType == 1) {
@@ -2645,22 +2850,22 @@ static void sendSMS(NSString *reason) {
         } else if (airplaneModeType == 3) {
             hasBeenBlocked = TRUE;
         }
-        if (hasBeenBlocked && !airplaneModeProgrammaticallyControlled && airplaneModeTest) {
+        if (hasBeenBlocked && !airplaneModeProgrammaticallyControlled) {
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-                SBAirplaneModeController *sbAirplaneModeController =  (SBAirplaneModeController *)[objc_getClass("SBAirplaneModeController") sharedInstance];
+                SBAirplaneModeController *sbAirplaneModeController = (SBAirplaneModeController *)[objc_getClass("SBAirplaneModeController") sharedInstance];
                 if ([sbAirplaneModeController isInAirplaneMode]) {
                     [sbAirplaneModeController setInAirplaneMode:FALSE];
-				airplaneModeTest = FALSE;
+                }
+                if (airplaneModeEmail && airplaneModeTest) {
+                    sendEmail(@"Airplane Mode Blocked!");
+                }
+                if (airplaneModeSMS && airplaneModeTest) {
+                    sendSMS(@"Airplane Mode Blocked!");
+                }
+                airplaneModeTest = FALSE;
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                     airplaneModeTest = TRUE;
                 });
-                if (airplaneModeEmail) {
-                    sendEmail(@"Airplane Mode Blocked!");
-                }
-                if (airplaneModeSMS) {
-                    sendSMS(@"Airplane Mode Blocked!");
-                }
-                }
             });
         }
     } else {
@@ -2673,7 +2878,7 @@ static void sendSMS(NSString *reason) {
 %hook SBSIMLockManager
 
 - (void)_updateToStatus:(long long)arg1 {
-	if (enabled && simEnabled) {
+	if (enabled && reallyEnabled && simEnabled) {
 		if (arg1 == 3) { //3 = No SIM Card
             getDeviceLocation();
 			if (wantsToDoSIMThings) {
@@ -2684,6 +2889,9 @@ static void sendSMS(NSString *reason) {
 				dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
 					if (simAlarmType == 1) {
 						isRinging = TRUE;
+						FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+						NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+                        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
 						if (!isHeadsetPluggedIn()) {
 		                	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
 		                    [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
@@ -2758,15 +2966,13 @@ static void sendSMS(NSString *reason) {
 %hook BBServer
 
 - (void)publishBulletin:(BBBulletin*)bulletin destinations:(unsigned long long)arg2 alwaysToLockScreen:(BOOL)arg3 {
-    if (enabled) {
+    if (enabled && reallyEnabled) {
         BOOL remoteAction = FALSE;
         NSString *message = bulletin.message;
         NSString *sectionID = bulletin.sectionID;
-        HBLogDebug(@"sectionID = %@ / message = %@", sectionID, message);
         if ([sectionID isEqual:@"com.apple.MobileSMS"]) {
             if (message != nil) {
                 if (remoteActionStringType == 1) {
-
                     if (remoteActionPlayAlarmEnabled && remoteActionPlayAlarmString != nil && !isInFakeShutdownMode && !hardResetAttempted && firstRemoteTest) {
                         if ([message isEqual:remoteActionPlayAlarmString]) {
                         	firstRemoteTest = FALSE;
@@ -2781,13 +2987,16 @@ static void sendSMS(NSString *reason) {
                                 [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                                 [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
                             }
+							FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                            NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+	                        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
                             remoteActionPlayer.numberOfLoops = -1;
                             [remoteActionPlayer play];
                             remoteAction = TRUE;
                         }
                     }
 
-                    else if (remoteActionStopAlarmEnabled && remoteActionStopAlarmString != nil && secondRemoteTest) {
+                    if (remoteActionStopAlarmEnabled && remoteActionStopAlarmString != nil && secondRemoteTest) {
                         if ([message isEqual:remoteActionStopAlarmString]) {
                         	secondRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2802,7 +3011,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionPlaySpeechEnabled && remoteActionSpeechString != nil && !isInFakeShutdownMode && !hardResetAttempted && (thirdRemoteTest || ![message isEqual:lastSpeechMessage])) {
+                    if (remoteActionPlaySpeechEnabled && remoteActionSpeechString != nil && !isInFakeShutdownMode && !hardResetAttempted && (thirdRemoteTest || ![message isEqual:lastSpeechMessage])) {
                         if ([message rangeOfString:remoteActionSpeechString].location != NSNotFound) {
                         	thirdRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2835,14 +3044,14 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionFakeShutdownEnabled && remoteActionFakeShutdownString != nil && fourthRemoteTest) {
+                    if (remoteActionFakeShutdownEnabled && remoteActionFakeShutdownString != nil && fourthRemoteTest) {
                         if ([message isEqual:remoteActionFakeShutdownString]) {
                         	fourthRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 	                    		fourthRemoteTest = TRUE;
 	                    	});
-                        	isRinging = TRUE;
                             isInFakeShutdownMode = TRUE;
+							isRinging = TRUE;
                         	dispatch_async(dispatch_get_main_queue(), ^{
     							UIWindow *pickpocketBlackWindow = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 5000, 5000)];
     	                        pickpocketBlackWindow.windowLevel = UIWindowLevelAlert + 100;
@@ -2851,10 +3060,12 @@ static void sendSMS(NSString *reason) {
     	                    	pickpocketBlackWindow.backgroundColor = [UIColor blackColor];
     	                        [pickpocketBlackWindow _setSecure:YES];
     	                        [pickpocketBlackWindow makeKeyAndVisible];
-    	                    });
 
-    	                    SBBacklightController *backlightControllerObject = (SBBacklightController *)[objc_getClass("SBBacklightController") sharedInstance];
-                            [backlightControllerObject setBacklightFactor:0.0 source:0];
+	                    		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+			    	                SBBacklightController *backlightControllerObject =  (SBBacklightController *)[objc_getClass("SBBacklightController") sharedInstance];
+			                        [backlightControllerObject setBacklightFactor:0.0 source:0];
+			                    });
+    	                    });
 
     						[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                             [[AVSystemController sharedAVSystemController] setVolumeTo:0.0 forCategory:@"Audio/Video"];
@@ -2869,7 +3080,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionFrontPicEnabled && remoteActionFrontPicString != nil && fifthRemoteTest) {
+                    if (remoteActionFrontPicEnabled && remoteActionFrontPicString != nil && fifthRemoteTest) {
                         if ([message isEqual:remoteActionFrontPicString]) {
                         	fifthRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2886,7 +3097,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionRearPicEnabled && remoteActionRearPicString != nil && sixthRemoteTest) {
+                    if (remoteActionRearPicEnabled && remoteActionRearPicString != nil && sixthRemoteTest) {
                         if ([message isEqual:remoteActionRearPicString]) {
                         	sixthRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2903,7 +3114,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionSendEnabled && remoteActionSendString != nil && seventhRemoteTest) {
+                    if (remoteActionSendEnabled && remoteActionSendString != nil && seventhRemoteTest) {
                         if ([message isEqual:remoteActionSendString]) {
                         	seventhRemoteTest = FALSE;
 	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2913,7 +3124,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionRespringEnabled && remoteActionRespringString != nil && eighthRemoteTest) {
+                    if (remoteActionRespringEnabled && remoteActionRespringString != nil && eighthRemoteTest) {
                         if ([message isEqual:remoteActionRespringString]) {
                         	eighthRemoteTest = FALSE;
 	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2927,7 +3138,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionEmergencyModeEnabled && remoteActionEmergencyModeString != nil && ninthRemoteTest) {
+                    if (remoteActionEmergencyModeEnabled && remoteActionEmergencyModeString != nil && ninthRemoteTest) {
                         if ([message isEqual:remoteActionEmergencyModeString]) {
                         	ninthRemoteTest = FALSE;
 	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2953,6 +3164,8 @@ static void sendSMS(NSString *reason) {
                     }
 
                 } else {
+                	HBLogDebug(@"string type = 2");
+                	HBLogDebug(@"checking remote action...");                	
                     if (remoteActionPlayAlarmEnabled && remoteActionPlayAlarmString != nil && !isInFakeShutdownMode && !hardResetAttempted && firstRemoteTest) {
                         if ([message rangeOfString:remoteActionPlayAlarmString].location != NSNotFound) {
                         	firstRemoteTest = FALSE;
@@ -2967,13 +3180,16 @@ static void sendSMS(NSString *reason) {
                                 [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                                 [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
                             }
+                            FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+                            NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
+	                        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
                             remoteActionPlayer.numberOfLoops = -1;
                             [remoteActionPlayer play];
                             remoteAction = TRUE;
                         }
                     }
 
-                    else if (remoteActionStopAlarmEnabled && remoteActionStopAlarmString != nil && secondRemoteTest) {
+                    if (remoteActionStopAlarmEnabled && remoteActionStopAlarmString != nil && secondRemoteTest) {
                         if ([message rangeOfString:remoteActionStopAlarmString].location != NSNotFound) {
                         	secondRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -2988,7 +3204,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionPlaySpeechEnabled && remoteActionSpeechString != nil && !isInFakeShutdownMode && !hardResetAttempted && (thirdRemoteTest || ![message isEqual:lastSpeechMessage])) {
+                    if (remoteActionPlaySpeechEnabled && remoteActionSpeechString != nil && !isInFakeShutdownMode && !hardResetAttempted && (thirdRemoteTest || ![message isEqual:lastSpeechMessage])) {
                         if ([message rangeOfString:remoteActionSpeechString].location != NSNotFound) {
                         	thirdRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -3021,7 +3237,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionFakeShutdownEnabled && remoteActionFakeShutdownString != nil && fourthRemoteTest) {
+                    if (remoteActionFakeShutdownEnabled && remoteActionFakeShutdownString != nil && fourthRemoteTest) {
                         if ([message rangeOfString:remoteActionFakeShutdownString].location != NSNotFound) {
                         	fourthRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -3037,10 +3253,12 @@ static void sendSMS(NSString *reason) {
     	                    	pickpocketBlackWindow.backgroundColor = [UIColor blackColor];
     	                        [pickpocketBlackWindow _setSecure:YES];
     	                        [pickpocketBlackWindow makeKeyAndVisible];
-    	                    });
 
-    	                    SBBacklightController *backlightControllerObject =  (SBBacklightController *)[objc_getClass("SBBacklightController") sharedInstance];
-                            [backlightControllerObject setBacklightFactor:0.0 source:0];
+	                    		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+			    	                SBBacklightController *backlightControllerObject =  (SBBacklightController *)[objc_getClass("SBBacklightController") sharedInstance];
+			                        [backlightControllerObject setBacklightFactor:0.0 source:0];
+			                    });
+    	                    });
 
     						[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                             [[AVSystemController sharedAVSystemController] setVolumeTo:0.0 forCategory:@"Audio/Video"];
@@ -3055,7 +3273,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionFrontPicEnabled && remoteActionFrontPicString != nil && fifthRemoteTest) {
+                    if (remoteActionFrontPicEnabled && remoteActionFrontPicString != nil && fifthRemoteTest) {
                         if ([message rangeOfString:remoteActionFrontPicString].location != NSNotFound) {
                         	fifthRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -3072,7 +3290,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionRearPicEnabled && remoteActionRearPicString != nil && sixthRemoteTest) {
+                    if (remoteActionRearPicEnabled && remoteActionRearPicString != nil && sixthRemoteTest) {
                         if ([message rangeOfString:remoteActionRearPicString].location != NSNotFound) {
                         	sixthRemoteTest = FALSE;
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -3089,7 +3307,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionSendEnabled && remoteActionSendString != nil && seventhRemoteTest) {
+                    if (remoteActionSendEnabled && remoteActionSendString != nil && seventhRemoteTest) {
                         if ([message rangeOfString:remoteActionSendString].location != NSNotFound) {
                         	seventhRemoteTest = FALSE;
 	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -3099,7 +3317,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionRespringEnabled && remoteActionRespringString != nil && eighthRemoteTest) {
+                    if (remoteActionRespringEnabled && remoteActionRespringString != nil && eighthRemoteTest) {
                         if ([message rangeOfString:remoteActionRespringString].location != NSNotFound) {
                         	eighthRemoteTest = FALSE;
 	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -3113,7 +3331,7 @@ static void sendSMS(NSString *reason) {
                         }
                     }
 
-                    else if (remoteActionEmergencyModeEnabled && remoteActionEmergencyModeString != nil && ninthRemoteTest) {
+                    if (remoteActionEmergencyModeEnabled && remoteActionEmergencyModeString != nil && ninthRemoteTest) {
                         if ([message rangeOfString:remoteActionEmergencyModeString].location != NSNotFound) {
                         	ninthRemoteTest = FALSE;
 	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -3233,9 +3451,8 @@ static void sendSMS(NSString *reason) {
 %hook WeatherLocationManager
 
 - (void)locationManager:(id)arg1 didUpdateLocations:(id)arg2 {
-	HBLogDebug(@"getting location...");
     %orig;
-    if (enabled) {
+    if (enabled && reallyEnabled) {
 	    NSArray *locations = arg2;
 	    if (locations.count > 0) {
 	        CLLocation *location = locations[0];
@@ -3247,12 +3464,16 @@ static void sendSMS(NSString *reason) {
 }
 
 - (id)locationManager {
-	HBLogDebug(@"initializing...");
-	if (enabled) {
-	    CLLocationManager *locationManager = %orig;
-	    locationManager.desiredAccuracy = kCLLocationAccuracyBest;
-	    [locationManager startUpdatingLocation];
-	    return locationManager;
+	if (enabled && reallyEnabled) {
+		if (!locationInitialized) {
+			//locationInitialized = TRUE;
+		    CLLocationManager *locationManager = %orig;
+		    locationManager.desiredAccuracy = kCLLocationAccuracyBest;
+		    [locationManager startUpdatingLocation];
+		    return locationManager;
+		} else {
+			return %orig;
+		}
 	} else {
 		return %orig;
 	}
@@ -3272,12 +3493,16 @@ static void sendSMS(NSString *reason) {
 
 - (void)_handlePearlFailure {
     %orig;
-    if (enabled && unlockProtectionEnabled && unlockFaceIDEnabled) {
+    if (enabled && reallyEnabled && unlockProtectionEnabled && unlockFaceIDEnabled) {
         getDeviceLocation();
         unlockTotalWrongPassword++;
         if (unlockTotalWrongPassword >= unlockAuthorizedPassword) {
             isRinging = TRUE;
             unlockTotalWrongPassword = 0;
+            FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
+            NSString *switchIdentifier = nil;
+            switchIdentifier = @"com.a3tweaks.switch.ringer";
+            [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
             if (!isHeadsetPluggedIn()) {
                 [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                 [[AVSystemController sharedAVSystemController] setVolumeTo:1.0 forCategory:@"Audio/Video"];
@@ -3348,6 +3573,54 @@ static void sendSMS(NSString *reason) {
 
 %end
 
+%hook SBWiFiManager
+
+- (void)_updateCurrentNetwork {
+	%orig;
+	if (enabled && homeEnabled) {
+		NSString *currentNetworkName = [self currentNetworkName];
+		if (currentNetworkName == (id)[NSNull null] || currentNetworkName.length == 0) {
+			reallyEnabled = TRUE;
+		} else if (currentNetworkName == firstKnownNetwork ||
+			currentNetworkName == secondKnownNetwork ||
+			currentNetworkName == thirdKnownNetwork ||
+			currentNetworkName == fourthKnownNetwork ||
+			currentNetworkName == fifthKnownNetwork) {
+			reallyEnabled = FALSE;
+		} else {
+			reallyEnabled = TRUE;
+		}
+	} else {
+		reallyEnabled = TRUE;
+	}
+
+	if (enabled && reallyEnabled) {
+		if (isLocked && lsInfoEnabled) {
+			if (lsButton != nil) {
+				lsButton.alpha = 1.0f;
+			}
+		}
+	} else {
+		if (isLocked && lsInfoEnabled) {
+			if (lsButton != nil) {
+				lsButton.alpha = 0.0f;
+			}
+		}
+	}
+}
+
+%end
+
+%hook SBLiftToWakeController
+
+- (void)wakeGestureManager:(id)arg1 didUpdateWakeGesture:(long long)arg2 {
+	if (!isInFakeShutdownMode && !hardResetAttempted) {
+		%orig;
+	}
+}
+
+%end
+
 %ctor {
 
     NSString *pickPocketPath = @"/var/mobile/Library/";
@@ -3397,6 +3670,15 @@ static void sendSMS(NSString *reason) {
     [preferences registerBool:&fakeShutdownDisableRinger default:YES forKey:@"fakeShutdownDisableRinger"];
     [preferences registerBool:&fakeShutdownDisableVibration default:YES forKey:@"fakeShutdownDisableVibration"];
 
+	[preferences registerBool:&respringImmediately default:YES forKey:@"respringImmediately"];
+    [preferences registerInteger:&respringDelay default:1 forKey:@"respringDelay"];
+	[preferences registerBool:&respringEmail default:YES forKey:@"respringEmail"];
+	[preferences registerBool:&respringSMS default:YES forKey:@"respringSMS"];
+	[preferences registerBool:&respringEnableDND default:YES forKey:@"respringEnableDND"];
+	[preferences registerBool:&respringEnableLPM default:YES forKey:@"respringEnableLPM"];
+	[preferences registerBool:&respringDisableRinger default:YES forKey:@"respringDisableRinger"];
+	[preferences registerBool:&respringDisableVibration default:YES forKey:@"respringDisableVibration"];
+    
     [preferences registerBool:&unlockProtectionEnabled default:YES forKey:@"unlockProtectionEnabled"];
     [preferences registerInteger:&unlockAuthorizedPassword default:2 forKey:@"unlockAuthorizedPassword"];
     [preferences registerBool:&unlockTouchIDEnabled default:YES forKey:@"unlockTouchIDEnabled"];            
@@ -3406,7 +3688,9 @@ static void sendSMS(NSString *reason) {
     [preferences registerBool:&unlockProtectionEmail default:YES forKey:@"unlockProtectionEmail"];
     [preferences registerBool:&unlockProtectionSMS default:YES forKey:@"unlockProtectionSMS"];
     [preferences registerBool:&unlockSavePicOnlyPassword default:NO forKey:@"unlockSavePicOnlyPassword"];
-
+	[preferences registerBool:&unlockAlwaysSaveFrontPic default:NO forKey:@"unlockAlwaysSaveFrontPic"];
+    [preferences registerBool:&unlockAlwaysSaveRearPic default:NO forKey:@"unlockAlwaysSaveRearPic"];
+    
     [preferences registerBool:&hardResetEnabled default:YES forKey:@"hardResetEnabled"];
     [preferences registerBool:&hardResetEmail default:YES forKey:@"hardResetEmail"];
     [preferences registerBool:&hardResetSMS default:YES forKey:@"hardResetSMS"];
@@ -3422,10 +3706,10 @@ static void sendSMS(NSString *reason) {
     [preferences registerObject:&userCountry default:nil forKey:@"userCountry"];
     [preferences registerObject:&userNumberToCall default:nil forKey:@"userNumberToCall"];
     [preferences registerBool:&userSendSMS default:YES forKey:@"userSendSMS"];
-    [preferences registerObject:&userXPosition default:@"" forKey:@"userXPosition"];
-    [preferences registerObject:&userYPosition default:@"" forKey:@"userYPosition"];
-    [preferences registerObject:&userCloseXPosition default:@"" forKey:@"userCloseXPosition"];
-    [preferences registerObject:&userCloseYPosition default:@"" forKey:@"userCloseYPosition"];
+    [preferences registerInteger:&userXPosition default:50 forKey:@"userXPosition"];
+    [preferences registerInteger:&userYPosition default:88 forKey:@"userYPosition"];
+    [preferences registerInteger:&userCloseXPosition default:50 forKey:@"userCloseXPosition"];
+    [preferences registerInteger:&userCloseYPosition default:88 forKey:@"userCloseYPosition"];
     [preferences registerInteger:&userBorderWidth default:1 forKey:@"userBorderWidth"];
     [preferences registerInteger:&userTextType default:1 forKey:@"userTextType"];
     [preferences registerInteger:&userButtonStyle default:1 forKey:@"userButtonStyle"];
@@ -3488,6 +3772,13 @@ static void sendSMS(NSString *reason) {
     [preferences registerBool:&airplaneModeEmail default:YES forKey:@"airplaneModeEmail"];
     [preferences registerBool:&airplaneModeSMS default:YES forKey:@"airplaneModeSMS"];
 
+    [preferences registerBool:&sosFeatureEnabled default:YES forKey:@"sosFeatureEnabled"];
+    [preferences registerBool:&sosDisabled default:FALSE forKey:@"sosDisabled"];
+    [preferences registerBool:&sosSaveFrontPic default:YES forKey:@"sosSaveFrontPic"];
+    [preferences registerBool:&sosSaveRearPic default:YES forKey:@"sosSaveRearPic"];
+    [preferences registerBool:&sosEmail default:YES forKey:@"sosEmail"];
+    [preferences registerBool:&sosSMS default:YES forKey:@"sosSMS"];
+
     [preferences registerBool:&simEnabled default:YES forKey:@"simEnabled"];
     [preferences registerInteger:&simAlarmType default:1 forKey:@"simAlarmType"];
     [preferences registerObject:&simAlarm default:nil forKey:@"simAlarm"];
@@ -3495,6 +3786,8 @@ static void sendSMS(NSString *reason) {
     [preferences registerBool:&simEmail default:YES forKey:@"simEmail"];
     [preferences registerBool:&simSMS default:YES forKey:@"simSMS"];
 
+    [preferences registerBool:&mailEnabled default:YES forKey:@"mailEnabled"];
+    [preferences registerBool:&sendMailLocally default:FALSE forKey:@"sendMailLocally"];
     [preferences registerObject:&senderEmail default:nil forKey:@"senderEmail"];
     [preferences registerObject:&firstReceiverEmail default:nil forKey:@"firstReceiverEmail"];
     [preferences registerObject:&secondReceiverEmail default:nil forKey:@"secondReceiverEmail"];
@@ -3514,6 +3807,7 @@ static void sendSMS(NSString *reason) {
     [preferences registerBool:&mailEnableLocation default:YES forKey:@"mailEnableLocation"];
     [preferences registerBool:&mailEnableWifi default:YES forKey:@"mailEnableWifi"];
 
+    [preferences registerBool:&smsEnabled default:YES forKey:@"smsEnabled"];
     [preferences registerObject:&firstPhoneNumber default:nil forKey:@"firstPhoneNumber"];
     [preferences registerObject:&secondPhoneNumber default:nil forKey:@"secondPhoneNumber"];
     [preferences registerObject:&thirdPhoneNumber default:nil forKey:@"thirdPhoneNumber"];
@@ -3534,6 +3828,13 @@ static void sendSMS(NSString *reason) {
     [preferences registerBool:&smsDisableAirplane default:YES forKey:@"smsDisableAirplane"];
 
     [preferences registerBool:&frontFlashEnabled default:NO forKey:@"frontFlashEnabled"];
+
+    [preferences registerBool:&homeEnabled default:NO forKey:@"homeEnabled"];
+	[preferences registerObject:&firstKnownNetwork default:nil forKey:@"firstKnownNetwork"];
+    [preferences registerObject:&secondKnownNetwork default:nil forKey:@"secondKnownNetwork"];
+    [preferences registerObject:&thirdKnownNetwork default:nil forKey:@"thirdKnownNetwork"];
+    [preferences registerObject:&fourthKnownNetwork default:nil forKey:@"fourthKnownNetwork"];
+    [preferences registerObject:&fifthKnownNetwork default:nil forKey:@"fifthKnownNetwork"];
 
     NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.ziph0n.pickpocket11.plist"];
     lsButtonTextColor = ([prefs objectForKey:@"lsButtonTextColor"] ? [prefs objectForKey:@"lsButtonTextColor"] : @"#000000");

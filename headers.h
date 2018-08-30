@@ -17,8 +17,10 @@
 #import "IABlocks/UIAlertView+IABlocks.h"
 #import <libcolorpicker.h>
 #import <KarenLocalizer/KarenLocalizer.h>
+#import "EmailSender/EmailSender.h"
 
 @interface SBPowerDownController : UIViewController
+- (void)pickpocketRespringNow;
 @end
 
 @interface SBLockHardwareButtonActions
@@ -38,6 +40,7 @@
 - (void)powerDown;
 - (void)showShutdownAlert;
 - (void)lockButtonWasHeld;
+- (void)_simulateLockButtonPress;
 - (UIAlertController *)getShutdownPasswordAlert:(SBPowerDownController *)_powerDownController;
 - (void)_lockButtonUp:(struct __IOHIDEvent *)arg1 fromSource:(int)arg2;
 -(void)pickpocketSendNewShutdownPasscodeMailTimer;
@@ -95,4 +98,8 @@
 
 @interface SBDashBoardIdleTimerProvider
 - (void)resetIdleTimer;
+@end
+
+@interface SBWiFiManager
+- (id)currentNetworkName;
 @end

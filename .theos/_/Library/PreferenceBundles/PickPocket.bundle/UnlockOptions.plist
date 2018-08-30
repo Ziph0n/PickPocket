@@ -214,6 +214,42 @@
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>On Unlock</string>
+			<key>footerText</key>
+			<string>If enabled, a picture will be saved on unlock</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>unlockAlwaysSaveFrontPic</string>
+			<key>label</key>
+			<string>Save Front Pic</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>unlockAlwaysSaveRearPic</string>
+			<key>label</key>
+			<string>Save Rear Pic</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
 	</array>
 	<key>title</key>
 	<string>Unlock Options</string>

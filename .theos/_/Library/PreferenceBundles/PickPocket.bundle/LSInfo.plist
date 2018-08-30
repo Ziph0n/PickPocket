@@ -136,37 +136,45 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Found Button Position</string>
+			<string>Found Button Position (X / Y)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSEditTextCell</string>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>50</real>
 			<key>defaults</key>
 			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>userXPosition</string>
-			<key>label</key>
-			<string>X Position: </string>
-			<key>placeholder</key>
-			<string>Keep it blank for default value</string>
-			<key>keyboard</key>
-			<string>phone</string>
+			<key>isSegmented</key>
+			<false/>
+			<key>showValue</key>
+			<true/>
+			<key>min</key>
+			<real>0</real>
+			<key>max</key>
+			<real>100</real>
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSEditTextCell</string>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>88</real>
 			<key>defaults</key>
 			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>userYPosition</string>
-			<key>label</key>
-			<string>Y Position: </string>
-			<key>placeholder</key>
-			<string>Keep it blank for default value</string>
-			<key>keyboard</key>
-			<string>phone</string>
+			<key>isSegmented</key>
+			<false/>
+			<key>showValue</key>
+			<true/>
+			<key>min</key>
+			<real>0</real>
+			<key>max</key>
+			<real>100</real>
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
@@ -174,37 +182,45 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Close Button Position</string>
+			<string>Close Button Position (X / Y)</string>
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSEditTextCell</string>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>50</real>
 			<key>defaults</key>
 			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>userCloseXPosition</string>
-			<key>label</key>
-			<string>X Position: </string>
-			<key>placeholder</key>
-			<string>Keep it blank for default value</string>
-			<key>keyboard</key>
-			<string>phone</string>
+			<key>isSegmented</key>
+			<false/>
+			<key>showValue</key>
+			<true/>
+			<key>min</key>
+			<real>0</real>
+			<key>max</key>
+			<real>100</real>
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSEditTextCell</string>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>88</real>
 			<key>defaults</key>
 			<string>com.ziph0n.pickpocket11</string>
 			<key>key</key>
 			<string>userCloseYPosition</string>
-			<key>label</key>
-			<string>Y Position: </string>
-			<key>placeholder</key>
-			<string>Keep it blank for default value</string>
-			<key>keyboard</key>
-			<string>phone</string>
+			<key>isSegmented</key>
+			<false/>
+			<key>showValue</key>
+			<true/>
+			<key>min</key>
+			<real>0</real>
+			<key>max</key>
+			<real>100</real>
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>

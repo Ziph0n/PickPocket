@@ -5,7 +5,7 @@ GO_EASY_ON_ME = 1
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = PickPocket
-PickPocket_FILES = Tweak.xm MLIMGURUploader/MLIMGURUploader.m Reachability/Reachability.m libfireball/libfireball.m IABlocks/UIAlertView+IABlocks.m
+PickPocket_FILES = Tweak.xm MLIMGURUploader/MLIMGURUploader.m Reachability/Reachability.m libfireball/libfireball.m IABlocks/UIAlertView+IABlocks.m EmailSender/EmailSender.m
 PickPocket_FRAMEWORKS = AVFoundation AudioToolbox CoreTelephony MessageUI IOKit
 PickPocket_PRIVATE_FRAMEWORKS = Celestial Weather
 PickPocket_LIBRARIES = Cephei flipswitch karenlocalizer

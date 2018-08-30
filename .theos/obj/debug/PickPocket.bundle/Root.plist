@@ -108,6 +108,14 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>label</key>
+			<string>SOS Options</string>
+			<key>detail</key>
+			<string>PickPocketSOSListController</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Password</string>
@@ -155,6 +163,12 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>If you don't have the location in mails ans SMS, install Activator from this repository: https://rpetri.ch/repo/</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Other Options</string>
 		</dict>
@@ -162,9 +176,17 @@
 			<key>cell</key>
 			<string>PSLinkCell</string>
 			<key>label</key>
-			<string>Pictures Options</string>
+			<string>Home Options</string>
 			<key>detail</key>
-			<string>PickPocketPicturesListController</string>
+			<string>PickPocketHomeListController</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>label</key>
+			<string>Other Options</string>
+			<key>detail</key>
+			<string>PickPocketOtherListController</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -181,6 +203,22 @@
 			<string>respring</string>
 			<key>icon</key>
 			<string>respring.png</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>PickPocket is free. If you like it, please consider a little donation! :)</string>
+		</dict>
+		<dict>
+			<key>action</key>
+			<string>donate</string>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+		    <key>cellClass</key>
+		    <string>HBTintedTableCell</string>
+			<key>label</key>
+			<string>Donate Via PayPal</string>
 		</dict>
 		<dict>
 			<key>cell</key>

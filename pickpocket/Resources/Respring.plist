@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>General</string>
+			<key>footerText</key>
+			<string>Disable this option to set a delay</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringImmediately</string>
+			<key>label</key>
+			<string>Respring Immediately</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Delay (Minutes)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>1</real>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringDelay</string>
+			<key>isSegmented</key>
+			<true/>
+			<key>showValue</key>
+			<true/>
+			<key>min</key>
+			<real>1</real>
+			<key>max</key>
+			<real>60</real>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>On Respring</string>
+			<key>footerText</key>
+			<string>If enabled, your device will respring 45 seconds after being triggered.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringEmail</string>
+			<key>label</key>
+			<string>Send Email</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringSMS</string>
+			<key>label</key>
+			<string>Send SMS</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>You can choose what will be in the Mail/SMS in the Mail and SMS sections of the PickPocket preference pane</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Manage Switches</string>
+			<key>footerText</key>
+			<string>PickPocket is using FlipSwitch to turn on and turn off these things. This mean that you need to enable/disable again things manually once the thief gave your device back</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringEnableDND</string>
+			<key>label</key>
+			<string>Enable Do Not Disturb</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringEnableLPM</string>
+			<key>label</key>
+			<string>Enable Low Power Mode</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringDisableRinger</string>
+			<key>label</key>
+			<string>Disable Ringer</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>respringDisableVibration</string>
+			<key>label</key>
+			<string>Disable Vibration</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>Respring Options</string>
+</dict>
+</plist>

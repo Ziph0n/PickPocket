@@ -38,6 +38,10 @@
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://mobile.twitter.com/Ziph0n"]];
 }
 
+- (void)discord {
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://discord.gg/rgnuF8J"]];
+}
+
 - (void)donate {
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=S8D55T2Q6YK2W"]];
 }
@@ -47,7 +51,7 @@
 }
 
 - (void)sendEmail {
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"mailto:ziph0ntweak@gmail.com?subject=PickPocket%202%20(iOS%2010)"]];
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"mailto:ziph0ntweak@gmail.com?subject=PickPocket%203%20(iOS%2011)"]];
 }
 
 - (void)viewDidLoad {

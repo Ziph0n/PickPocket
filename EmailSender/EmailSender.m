@@ -26,19 +26,24 @@
 
 @implementation EmailSender
 
-+ (void)sendMailWithBody:(NSString*)emailBody
-                 subject:(NSString*)subject
-      firstReceiverEmail:(NSString*)firstReceiverEmail
-     secondReceiverEmail:(NSString*)secondReceiverEmail
-      thirdReceiverEmail:(NSString*)thirdReceiverEmail
-     fourthReceiverEmail:(NSString*)fourthReceiverEmail
-      fifthReceiverEmail:(NSString*)fifthReceiverEmail
-            frontPicture:(NSData*)frontPicture
-             rearPicture:(NSData*)rearPicture
-         completionBlock:(void(^)(NSString* result))completion
-            failureBlock:(void(^)(NSURLResponse *response, NSError *error, NSInteger status))failureBlock
++ (void)sendMailTroughGmail:(BOOL)throughGmail
+                    withBody:(NSString*)emailBody
+                     subject:(NSString*)subject
+          firstReceiverEmail:(NSString*)firstReceiverEmail
+         secondReceiverEmail:(NSString*)secondReceiverEmail
+          thirdReceiverEmail:(NSString*)thirdReceiverEmail
+         fourthReceiverEmail:(NSString*)fourthReceiverEmail
+          fifthReceiverEmail:(NSString*)fifthReceiverEmail
+                frontPicture:(NSData*)frontPicture
+                 rearPicture:(NSData*)rearPicture
+             completionBlock:(void(^)(NSString* result))completion
+                failureBlock:(void(^)(NSURLResponse *response, NSError *error, NSInteger status))failureBlock
 {
     NSString *urlString = @"https://pickpocket.ziph0n.com/sendMail";
+    if (throughGmail) {
+        urlString = @"https://pickpocket.ziph0n.com/sendMailGmail";
+    }
+
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] init] ;
     [request setURL:[NSURL URLWithString:urlString]];
     [request setHTTPMethod:@"POST"];

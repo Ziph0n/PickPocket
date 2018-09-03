@@ -23,6 +23,22 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Join the PickPocket server to get help, provide help and discuss about PickPocket</string>
+		</dict>
+		<dict>
+			<key>action</key>
+			<string>discord</string>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+		    <key>cellClass</key>
+		    <string>HBTintedTableCell</string>
+			<key>label</key>
+			<string>Join Discord Server</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Options</string>
 		</dict>
@@ -171,14 +187,6 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Other Options</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSLinkCell</string>
-			<key>label</key>
-			<string>Home Options</string>
-			<key>detail</key>
-			<string>PickPocketHomeListController</string>
 		</dict>
 		<dict>
 			<key>cell</key>

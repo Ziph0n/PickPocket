@@ -103,3 +103,7 @@
 @interface SBWiFiManager
 - (id)currentNetworkName;
 @end
+
+@interface SBDashBoardView
+- (void)pickpocketMailButtonReallyClicked;
+@end

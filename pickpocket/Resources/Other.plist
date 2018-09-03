@@ -9,6 +9,8 @@
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Picures</string>
+			<key>footerText</key>
+			<string>If the above switch is enabled, all pictures taken will be saved at /var/mobile/Library/PickPocket/Pictures</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -21,6 +23,34 @@
 			<string>frontFlashEnabled</string>
 			<key>label</key>
 			<string>Front Flash Enabled</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>savePicturesAlbum</string>
+			<key>label</key>
+			<string>Save Pictures to Album</string>
+			<key>PostNotification</key>
+			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.ziph0n.pickpocket11</string>
+			<key>key</key>
+			<string>savePicturesLocally</string>
+			<key>label</key>
+			<string>Save Pictures Locally</string>
 			<key>PostNotification</key>
 			<string>com.ziph0n.pickpocket11/ReloadPrefs</string>
 		</dict>

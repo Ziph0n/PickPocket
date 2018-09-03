@@ -11,15 +11,21 @@
 }
 
 - (void)previewAndSet:(id)value forSpecifier:(id)specifier{
-    // Sample sound and set
-    AudioServicesDisposeSystemSoundID(selectedSound);
-    AudioServicesCreateSystemSoundID((CFURLRef)[NSURL fileURLWithPath:[NSString stringWithFormat:@"/Library/Application Support/PickPocket/Sounds/%@",value]],&selectedSound);
-    AudioServicesPlaySystemSound(selectedSound);
-
     [super setPreferenceValue:value specifier:specifier];
+
+    if (audioPlayer != nil) {
+        if ([audioPlayer isPlaying]) {
+            [audioPlayer stop];
+        }
+    }
+
+    NSString *path = [NSString stringWithFormat:@"/Library/Application Support/PickPocket/Sounds/%@", value];
+    NSURL *file = [NSURL fileURLWithPath:path];
+    audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:file error:nil];
+    [audioPlayer prepareToPlay];
+    [audioPlayer play];
 }
 
-// List our directory content
 - (NSArray *)getValues:(id)target{
     directoryContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/Application Support/PickPocket/Sounds/" error:NULL];
     NSMutableArray *listing = [NSMutableArray arrayWithObjects:@"None",nil];
@@ -29,4 +35,12 @@
     }
     return listing;
 }
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    if (audioPlayer != nil) {
+        [audioPlayer stop];
+    }
+}
+
 @end

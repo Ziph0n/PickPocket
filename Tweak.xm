@@ -219,6 +219,7 @@ static BOOL simSMS;
 
 static BOOL mailEnabled;
 static BOOL sendMailLocally;
+static BOOL sendMailGmail;
 static NSString *senderEmail;
 static NSString *firstReceiverEmail;
 static NSString *secondReceiverEmail;
@@ -238,6 +239,7 @@ static NSTimer *mailTimer;
 static BOOL mailEnableCellular;
 static BOOL mailEnableLocation;
 static BOOL mailEnableWifi;
+static NSString *mailAdditionalText;
 
 static BOOL smsEnabled;
 static NSString *firstPhoneNumber;
@@ -259,8 +261,11 @@ static BOOL smsEnableCellular;
 static BOOL smsEnableLocation;
 static BOOL smsEnableWifi;
 static BOOL smsDisableAirplane;
+static NSString *smsAdditionalText;
 
 static BOOL frontFlashEnabled;
+static BOOL savePicturesAlbum;
+static BOOL savePicturesLocally;
 
 static BOOL homeEnabled;
 static NSString *firstKnownNetwork;
@@ -387,7 +392,7 @@ static void showWhiteFlash() {
 	}
 }
 
-static void takeFrontPic() {
+static NSString* takeFrontPic() {
 	isTakingFrontPicture = TRUE;
 	FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
 	NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
@@ -408,9 +413,15 @@ static void takeFrontPic() {
 
 	showWhiteFlash();
 
+	NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init]; 
+	[dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+	NSString *date = [dateFormatter stringFromDate:[NSDate date]];
+	NSString *commandString = [NSString stringWithFormat:@"camshot -front \"/var/mobile/Library/PickPocket/Pictures/thiefFrontPic %@.jpg\"", date];
+	const char *command = [commandString UTF8String]; 
+
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    system("camshot -front /var/mobile/Downloads/thiefFrontPic.jpg");
+    system(command);
     #pragma clang diagnostic pop
 
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -419,9 +430,11 @@ static void takeFrontPic() {
 		}
 		isTakingFrontPicture = FALSE;
 	});
+
+	return [NSString stringWithFormat:@"/var/mobile/Library/PickPocket/Pictures/thiefFrontPic %@.jpg", date];
 }
 
-static void takeRearPic() {
+static NSString* takeRearPic() {
 	isTakingRearPicture = TRUE;
 	FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
 	NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
@@ -440,9 +453,15 @@ static void takeRearPic() {
 	    [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
 	} 
 
+	NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init]; 
+	[dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+	NSString *date = [dateFormatter stringFromDate:[NSDate date]];
+	NSString *commandString = [NSString stringWithFormat:@"camshot -back \"/var/mobile/Library/PickPocket/Pictures/thiefRearPic %@.jpg\"", date];
+	const char *command = [commandString UTF8String]; 
+
 	#pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    system("camshot -back /var/mobile/Downloads/thiefRearPic.jpg");
+    system(command);
     #pragma clang diagnostic pop
 
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -451,11 +470,13 @@ static void takeRearPic() {
 		}
 		isTakingRearPicture = FALSE;
 	});
+
+	return [NSString stringWithFormat:@"/var/mobile/Library/PickPocket/Pictures/thiefRearPic %@.jpg", date];
 }
 
 static void reallySendEmail(NSString *subject, NSString *emailBody) {
 	if (!sendMailLocally) {
-		[EmailSender sendMailWithBody:emailBody subject:subject firstReceiverEmail:firstReceiverEmail secondReceiverEmail:secondReceiverEmail thirdReceiverEmail:thirdReceiverEmail fourthReceiverEmail:fourthReceiverEmail fifthReceiverEmail:fifthReceiverEmail frontPicture:/*UIImagePNGRepresentation(rearPic)*/nil rearPicture:nil
+		[EmailSender sendMailTroughGmail:sendMailGmail withBody:emailBody subject:subject firstReceiverEmail:firstReceiverEmail secondReceiverEmail:secondReceiverEmail thirdReceiverEmail:thirdReceiverEmail fourthReceiverEmail:fourthReceiverEmail fifthReceiverEmail:fifthReceiverEmail frontPicture:/*UIImagePNGRepresentation(rearPic)*/nil rearPicture:nil
 	    completionBlock:^(NSString *result) {
 	    }
 	    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
@@ -497,6 +518,10 @@ static void sendEmail(NSString *reason) {
 	        [emailBody appendString:[NSString stringWithFormat:@"<p>%@</p> <br />", mailCustomText]];
 	    }
 
+	    if (mailAdditionalText != nil && ![mailAdditionalText isEqual:@""]) {
+	        [emailBody appendString:[NSString stringWithFormat:@"<p>Details: %@</p> <br />", mailAdditionalText]];
+		}	    
+
 		[emailBody appendString:@"<p>This email was sent by PickPocket for the following reason:</p>"];
 		[emailBody appendString:[NSString stringWithFormat:@"<p><b>%@</b></p> <br />", reason]];
 
@@ -523,23 +548,23 @@ static void sendEmail(NSString *reason) {
 		}
 
 		if (mailFrontPic) {
-			takeFrontPic();
-			UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
+			NSString *frontPicPath = takeFrontPic();
+			UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
 			NSData *frontPicData = [NSData dataWithData:UIImagePNGRepresentation(frontPic)];
 		    NSString *base64StringFrontPic = [frontPicData base64EncodedStringWithOptions:0];
 		    [emailBody appendString:[NSString stringWithFormat:@"<p><b>Front Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringFrontPic]];
 			NSFileManager *manager = [NSFileManager defaultManager];
-			[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+			[manager removeItemAtPath:frontPicPath error:nil];
 		}
 
 		if (mailRearPic) {
-			takeRearPic();
-			UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
+			NSString *rearPicPath = takeRearPic();
+			UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
 			NSData *rearPicData = [NSData dataWithData:UIImagePNGRepresentation(rearPic)];
 		    NSString *base64StringRearPic = [rearPicData base64EncodedStringWithOptions:0];
 			[emailBody appendString:[NSString stringWithFormat:@"<p><b>Rear Picture</b><br /><b><img src='data:image/png;base64,%@'></b></p>",base64StringRearPic]];
 			NSFileManager *manager = [NSFileManager defaultManager];
-			[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
+			[manager removeItemAtPath:rearPicPath error:nil];
 		}
 
 		if (mailLocation) {
@@ -617,10 +642,10 @@ static void sendSMS(NSString *reason) {
 	                }
 	            } else {
 	                HBLogDebug(@"inside smsFrontPic");
-	                takeFrontPic();
+	                NSString *frontPicPath = takeFrontPic();
 	                __block NSMutableString *smsFrontPicString = [[NSMutableString alloc] init];
 	                [smsFrontPicString appendString:@"This SMS was sent by PickPocket"];
-	        		UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
+	        		UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
 
 	                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
 	                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
@@ -650,7 +675,7 @@ static void sendSMS(NSString *reason) {
 	                        }
 	                        HBLogDebug(@"sms sent");
 	                        NSFileManager *manager = [NSFileManager defaultManager];
-	                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+	                		[manager removeItemAtPath:frontPicPath error:nil];
 	                    }
 	                    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
 	                        HBLogDebug(@"failed");
@@ -672,7 +697,7 @@ static void sendSMS(NSString *reason) {
 	                        }
 	                        HBLogDebug(@"sms sent");
 	                        NSFileManager *manager = [NSFileManager defaultManager];
-	                		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
+	                		[manager removeItemAtPath:frontPicPath error:nil];
 	                    }];
 	            }
 	        }
@@ -695,10 +720,10 @@ static void sendSMS(NSString *reason) {
 	                    [[CTMessageCenter sharedMessageCenter] sendSMSWithText:@"This SMS was sent by PickPocket\n\nFailed getting the rear picture: No Internet connection detected..." serviceCenter:nil toAddress:fifthPhoneNumber];
 	                }
 	            } else {
-	                takeRearPic();
+	                NSString *rearPicPath = takeRearPic();
 	                __block NSMutableString *smsRearPicString = [[NSMutableString alloc] init];
 	                [smsRearPicString appendString:@"This SMS was sent by PickPocket"];
-	        		UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
+	        		UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
 
 	                NSArray *imgurClientIDs = @[@"0b083d3dd1b4d10", @"227d21ea406c0c1", @"27bfc071fa3dd9c", @"448f2e7d05d0ac8", @"6e9d68cc8f4b5b7", @"7b353e04fcf596f", @"9d3a240bf208683", @"9f1334c7c39c68f", @"b87e8d1776759a0", @"e0e953ef82d0be8"];
 	                NSString *IMGUR_CLIENT_ID = imgurClientIDs[arc4random() % [imgurClientIDs count]];
@@ -727,7 +752,7 @@ static void sendSMS(NSString *reason) {
 	                        }
 	                        HBLogDebug(@"sms sent");
 	                        NSFileManager *manager = [NSFileManager defaultManager];
-	                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];            }
+	                        [manager removeItemAtPath:rearPicPath error:nil];            }
 	                    failureBlock:^(NSURLResponse *a, NSError *error, NSInteger c) {
 	                        [smsRearPicString appendString:[NSString stringWithFormat:@"\n\nFailed getting the rear picture..."]];
 	                        if (firstPhoneNumber != nil) {
@@ -747,7 +772,7 @@ static void sendSMS(NSString *reason) {
 	                        }
 	                        HBLogDebug(@"sms sent");
 	                        NSFileManager *manager = [NSFileManager defaultManager];
-	                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
+	                        [manager removeItemAtPath:rearPicPath error:nil];
 	                    }];
 	            }
 	        }
@@ -757,6 +782,10 @@ static void sendSMS(NSString *reason) {
 	        if (smsCustomText != nil && ![smsCustomText isEqual:@""]) {
 	            [smsString appendString:[NSString stringWithFormat:@"%@\n\n", smsCustomText]];
 	        }
+
+	        if (smsAdditionalText != nil && ![smsAdditionalText isEqual:@""]) {
+	            [smsString appendString:[NSString stringWithFormat:@"Details: %@\n\n", smsAdditionalText]];
+			}
 
 	        [smsString appendString:@"This SMS was sent by PickPocket for the following reason:\n"];
 	        [smsString appendString:reason];
@@ -928,22 +957,30 @@ static void sendSMS(NSString *reason) {
             	        shutdownTotalWrongPassword++;
                         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                             if (shutdownSaveFrontPic) {
-                                takeFrontPic();
-                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                    NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                                });
+                                NSString *frontPicPath = takeFrontPic();
+                                UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                                if (savePicturesAlbum) {
+	                                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+	                            }
+	                            if (!savePicturesLocally) {
+	                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                    NSFileManager *manager = [NSFileManager defaultManager];
+	                                    [manager removeItemAtPath:frontPicPath error:nil];
+	                                });
+	                            }
                             }
                             if (shutdownSaveRearPic) {
-                                takeRearPic();
-                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                    NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                                });
+                                NSString *rearPicPath = takeRearPic();
+                                UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                                if (savePicturesAlbum) {
+	                                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                                }
+                                if (!savePicturesLocally) {
+                                	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                                    	NSFileManager *manager = [NSFileManager defaultManager];
+                                    	[manager removeItemAtPath:rearPicPath error:nil];
+                                	});
+                                }
                             }
                         });
             	    }
@@ -991,22 +1028,30 @@ static void sendSMS(NSString *reason) {
                 if (shutdownWrongPasswordEntered) {
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                         if (fakeShutdownWrongPasswordSaveFrontPic) {
-                            takeFrontPic();
-                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                            });
+                            NSString *frontPicPath = takeFrontPic();
+                            UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                                [manager removeItemAtPath:frontPicPath error:nil];
+	                            });
+                        	}
                         }
                         if (fakeShutdownWrongPasswordSaveRearPic) {
-                            takeRearPic();
-                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                            });
+                            NSString *rearPicPath = takeRearPic();
+                            UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                                [manager removeItemAtPath:rearPicPath error:nil];
+	                            });
+	                        }
                         }
                     });
                 }
@@ -1258,22 +1303,30 @@ static void sendSMS(NSString *reason) {
                                 });
                             }
                             if (fakeShutdownSaveFrontPic) {
-                                takeFrontPic();
-                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                    NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                                });
+                                NSString *frontPicPath = takeFrontPic();
+                                UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                                if (savePicturesAlbum) {
+                                	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                                }
+                                if (!savePicturesLocally) {
+	                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                    NSFileManager *manager = [NSFileManager defaultManager];
+	                                    [manager removeItemAtPath:frontPicPath error:nil];
+	                                });
+	                            }
                             }
                             if (fakeShutdownSaveRearPic) {
-                                takeRearPic();
-                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                    NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                                });
+                                NSString *rearPicPath = takeRearPic();
+                                UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                                if (savePicturesAlbum) {
+                                	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                                }
+                                if (!savePicturesLocally) {
+	                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                    NSFileManager *manager = [NSFileManager defaultManager];
+	                                    [manager removeItemAtPath:rearPicPath error:nil];
+	                                });
+	                            }
                             }
                         }
                     });
@@ -1524,22 +1577,30 @@ static void sendSMS(NSString *reason) {
 	                sendSMS(@"SOS Triggered!");
 	            }
                 if (sosSaveFrontPic) {
-                    takeFrontPic();
-                    UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                    UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                        NSFileManager *manager = [NSFileManager defaultManager];
-                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                    });
+                    NSString *frontPicPath = takeFrontPic();
+                    UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                    if (savePicturesAlbum) {
+                    	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                    }
+                    if (!savePicturesLocally) {
+	                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                        NSFileManager *manager = [NSFileManager defaultManager];
+	                        [manager removeItemAtPath:frontPicPath error:nil];
+	                    });
+	                }
                 }
                 if (sosSaveRearPic) {
-                    takeRearPic();
-                    UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                    UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                        NSFileManager *manager = [NSFileManager defaultManager];
-                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                    });
+                    NSString *rearPicPath = takeRearPic();
+                    UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                    if (savePicturesAlbum) {
+                    	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                    }
+                    if (!savePicturesLocally) {
+	                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                        NSFileManager *manager = [NSFileManager defaultManager];
+	                        [manager removeItemAtPath:rearPicPath error:nil];
+	                    });
+	                }
                 }
             });
         });
@@ -1722,22 +1783,30 @@ static void sendSMS(NSString *reason) {
                                             }
                                             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                                                 if (shutdownSaveFrontPic) {
-                                                    takeFrontPic();
-                                                    UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                                                    UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                                                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                                        NSFileManager *manager = [NSFileManager defaultManager];
-                                                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                                                    });
+                                                    NSString *frontPicPath = takeFrontPic();
+                                                    UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                                                    if (savePicturesAlbum) {
+                                                    	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                                                    }
+                                                    if (!savePicturesLocally) {
+	                                                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                                        NSFileManager *manager = [NSFileManager defaultManager];
+	                                                        [manager removeItemAtPath:frontPicPath error:nil];
+	                                                    });
+	                                                }
                                                 }
                                                 if (shutdownSaveRearPic) {
-                                                    takeRearPic();
-                                                    UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                                                    UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                                                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                                        NSFileManager *manager = [NSFileManager defaultManager];
-                                                        [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                                                    });
+                                                    NSString *rearPicPath = takeRearPic();
+                                                    UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                                                    if (savePicturesAlbum) {
+                                                    	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                                                    }
+                                                    if (!savePicturesLocally) {
+	                                                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                                        NSFileManager *manager = [NSFileManager defaultManager];
+	                                                        [manager removeItemAtPath:rearPicPath error:nil];
+	                                                    });
+	                                                }
                                                 }
                                             });
                                         });
@@ -2010,22 +2079,30 @@ static void sendSMS(NSString *reason) {
                 unlockTotalWrongPassword++;
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                     if (unlockSaveFrontPic) {
-                    	takeFrontPic();
-                        UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                        UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                            NSFileManager *manager = [NSFileManager defaultManager];
-                            [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                        });
+                    	NSString *frontPicPath = takeFrontPic();
+                        UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                        if (savePicturesAlbum) {
+                        	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                        }
+                        if (!savePicturesLocally) {
+	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                            NSFileManager *manager = [NSFileManager defaultManager];
+	                            [manager removeItemAtPath:frontPicPath error:nil];
+	                        });
+	                    }
                     }
                     if (unlockSaveRearPic) {
-						takeRearPic();
-                        UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                        UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                            NSFileManager *manager = [NSFileManager defaultManager];
-                            [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                        });
+						NSString *rearPicPath = takeRearPic();
+                        UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                        if (savePicturesAlbum) {
+                        	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                        }
+                        if (!savePicturesLocally) {
+	                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                            NSFileManager *manager = [NSFileManager defaultManager];
+	                            [manager removeItemAtPath:rearPicPath error:nil];
+	                        });
+	                    }
                     }
                 });
 
@@ -2116,22 +2193,30 @@ static void sendSMS(NSString *reason) {
                     unlockTotalWrongPassword++;
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
                         if (unlockSaveFrontPic) {
-                            takeFrontPic();
-                        	UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                        		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                            });
+                            NSString *frontPicPath = takeFrontPic();
+                        	UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                        		[manager removeItemAtPath:frontPicPath error:nil];
+	                            });
+	                        }
                         }
                         if (unlockSaveRearPic) {
-                            takeRearPic();
-                        	UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                        		[manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                            });
+                            NSString *rearPicPath = takeRearPic();
+                        	UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                        		[manager removeItemAtPath:rearPicPath error:nil];
+	                            });
+	                        }
                         }
                     });
                 }
@@ -2247,22 +2332,30 @@ static void sendSMS(NSString *reason) {
                         }
                         if (!unlockSavePicOnlyPassword) {
                             if (unlockSaveFrontPic) {
-                                takeFrontPic();
-                                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                    NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                                });
+                                NSString *frontPicPath = takeFrontPic();
+                                UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                                if (savePicturesAlbum) {
+                                	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                                }
+                                if (!savePicturesLocally) {
+	                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                    NSFileManager *manager = [NSFileManager defaultManager];
+	                                    [manager removeItemAtPath:frontPicPath error:nil];
+	                                });
+	                            }
                             }
                             if (unlockSaveRearPic) {
-                                takeRearPic();
-                                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                    NSFileManager *manager = [NSFileManager defaultManager];
-                                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                                });
+                                NSString *rearPicPath = takeRearPic();
+                                UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                                if (savePicturesAlbum) {
+                                	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                                }
+                                if (!savePicturesLocally) {
+	                                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                    NSFileManager *manager = [NSFileManager defaultManager];
+	                                    [manager removeItemAtPath:rearPicPath error:nil];
+	                                });
+	                            }
                             }
                         }
                     }
@@ -2431,26 +2524,36 @@ static void sendSMS(NSString *reason) {
         mailTimer = nil;
         [smsTimer invalidate];
         smsTimer = nil;
+        mailAdditionalText = nil;
+        smsAdditionalText = nil;
 
         if (unlockAlwaysSaveFrontPic || unlockAlwaysSaveRearPic) {
 	        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
 	        	if (unlockAlwaysSaveFrontPic) {
-	                takeFrontPic();
-	                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-	                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-	                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-	                    NSFileManager *manager = [NSFileManager defaultManager];
-	                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-	                });
+	                NSString *frontPicPath = takeFrontPic();
+	                UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+	                if (savePicturesAlbum) {
+	                	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+	                }
+	                if (!savePicturesLocally) {
+		                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+		                    NSFileManager *manager = [NSFileManager defaultManager];
+		                    [manager removeItemAtPath:frontPicPath error:nil];
+		                });
+		            }
 	            }
 	            if (unlockAlwaysSaveRearPic) {
-	                takeRearPic();
-	                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-	                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-	                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-	                    NSFileManager *manager = [NSFileManager defaultManager];
-	                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-	                });
+	                NSString *rearPicPath = takeRearPic();
+	                UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+	                if (savePicturesAlbum) {
+	                	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+	                }
+	                if (!savePicturesLocally) {
+		                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+		                    NSFileManager *manager = [NSFileManager defaultManager];
+		                    [manager removeItemAtPath:rearPicPath error:nil];
+		                });
+		            }
 	            }
 	        });
 		}
@@ -2739,7 +2842,7 @@ static void sendSMS(NSString *reason) {
         #pragma clang diagnostic push
         #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@":("
-                                                        message:@"The owner of this device forgot to mention his phone number :("
+                                                        message:@"The owner of this device forgot to mention his phone number :( Please send an E-Mail instead"
                                                        delegate:nil
                                               cancelButtonTitle:@"Dismiss"
                                               otherButtonTitles:nil];
@@ -2754,7 +2857,38 @@ static void sendSMS(NSString *reason) {
 
 %new
 -(void)pickpocketMailButtonClicked:(id)arg1 {
+
+	#pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Details"
+                                                message:@"Hi, thank you for helping me. If you want you can enter more details below. Once you're done, please tap on Ok and an E-Mail will be sent to me."   
+                                      cancelButtonTitle:@"Cancel"
+                                      otherButtonTitles:@"OK", nil];
+	alert.alertViewStyle = UIAlertViewStylePlainTextInput;
+	UITextField *textfield = [alert textFieldAtIndex:0];
+	textfield.placeholder = @"Enter your details here";
+	textfield.autocapitalizationType = UITextAutocapitalizationTypeSentences;
+	[alert setHandler:^(UIAlertView* alert, NSInteger buttonIndex) {
+		mailAdditionalText = textfield.text;
+		smsAdditionalText = textfield.text;
+		[self pickpocketMailButtonReallyClicked];
+	} forButtonAtIndex:[alert firstOtherButtonIndex]];
+	[alert show];
+    [alert release];
+    #pragma clang diagnostic pop
+
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+	    sendEmail(@"Mail Button Clicked!");
+		if (userSendSMS) {
+	        sendSMS(@"Mail Button Clicked!");
+    	}
+    });
+
+}
+
+%new
+- (void)pickpocketMailButtonReallyClicked {
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
         sendEmail(@"This device has been found!");
         dispatch_async(dispatch_get_main_queue(), ^{
             if (mailRepeat) {
@@ -2774,6 +2908,7 @@ static void sendSMS(NSString *reason) {
             });
         }
     });
+
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Thank you! <3"
@@ -2989,7 +3124,7 @@ static void sendSMS(NSString *reason) {
                             }
 							FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
                             NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
-	                        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+	                        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
                             remoteActionPlayer.numberOfLoops = -1;
                             [remoteActionPlayer play];
                             remoteAction = TRUE;
@@ -3086,13 +3221,17 @@ static void sendSMS(NSString *reason) {
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 	                    		fifthRemoteTest = TRUE;
 	                    	});
-                            takeFrontPic();
-                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                            });
+                            NSString *frontPicPath = takeFrontPic();
+                            UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                                [manager removeItemAtPath:frontPicPath error:nil];
+	                            });
+	                        }
                             remoteAction = TRUE;
                         }
                     }
@@ -3103,13 +3242,17 @@ static void sendSMS(NSString *reason) {
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 	                    		sixthRemoteTest = TRUE;
 	                    	});
-                            takeRearPic();
-                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                            });
+                            NSString *rearPicPath = takeRearPic();
+                            UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                                [manager removeItemAtPath:rearPicPath error:nil];
+	                            });
+	                        }
                             remoteAction = TRUE;
                         }
                     }
@@ -3182,7 +3325,7 @@ static void sendSMS(NSString *reason) {
                             }
                             FSSwitchPanel *fsp = [FSSwitchPanel sharedPanel];
                             NSString *switchIdentifier = @"com.a3tweaks.switch.ringer";
-	                        [fsp setState:FSSwitchStateOff forSwitchIdentifier:switchIdentifier];
+	                        [fsp setState:FSSwitchStateOn forSwitchIdentifier:switchIdentifier];
                             remoteActionPlayer.numberOfLoops = -1;
                             [remoteActionPlayer play];
                             remoteAction = TRUE;
@@ -3279,13 +3422,17 @@ static void sendSMS(NSString *reason) {
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 	                    		fifthRemoteTest = TRUE;
 	                    	});
-                            takeFrontPic();
-                            UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                            });
+                            NSString *frontPicPath = takeFrontPic();
+                            UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                                [manager removeItemAtPath:frontPicPath error:nil];
+	                            });
+	                        }
                             remoteAction = TRUE;
                         }
                     }
@@ -3296,13 +3443,17 @@ static void sendSMS(NSString *reason) {
 	                    	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 180.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 	                    		sixthRemoteTest = TRUE;
 	                    	});
-                            takeRearPic();
-                            UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                            UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                                NSFileManager *manager = [NSFileManager defaultManager];
-                                [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                            });
+                            NSString *rearPicPath = takeRearPic();
+                            UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                            if (savePicturesAlbum) {
+                            	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                            }
+                            if (!savePicturesLocally) {
+	                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                                NSFileManager *manager = [NSFileManager defaultManager];
+	                                [manager removeItemAtPath:rearPicPath error:nil];
+	                            });
+	                        }
                             remoteAction = TRUE;
                         }
                     }
@@ -3536,22 +3687,30 @@ static void sendSMS(NSString *reason) {
         }
         if (!unlockSavePicOnlyPassword) {
             if (unlockSaveFrontPic) {
-                takeFrontPic();
-                UIImage *frontPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefFrontPic.jpg"];
-                UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                    NSFileManager *manager = [NSFileManager defaultManager];
-                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefFrontPic.jpg"] error:nil];
-                });
+                NSString *frontPicPath = takeFrontPic();
+                UIImage *frontPic = [UIImage imageWithContentsOfFile:frontPicPath];
+                if (savePicturesAlbum) {
+                	UIImageWriteToSavedPhotosAlbum(frontPic, nil, nil, nil);
+                }
+                if (!savePicturesLocally) {
+	                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                    NSFileManager *manager = [NSFileManager defaultManager];
+	                    [manager removeItemAtPath:frontPicPath error:nil];
+	                });
+	            }
             }
             if (unlockSaveRearPic) {
-                takeRearPic();
-                UIImage *rearPic = [UIImage imageWithContentsOfFile:@"/var/mobile/Downloads/thiefRearPic.jpg"];
-                UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                    NSFileManager *manager = [NSFileManager defaultManager];
-                    [manager removeItemAtPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Downloads/thiefRearPic.jpg"] error:nil];
-                });
+                NSString *rearPicPath = takeRearPic();
+                UIImage *rearPic = [UIImage imageWithContentsOfFile:rearPicPath];
+                if (savePicturesAlbum) {
+                	UIImageWriteToSavedPhotosAlbum(rearPic, nil, nil, nil);
+                }
+                if (!savePicturesLocally) {
+	                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+	                    NSFileManager *manager = [NSFileManager defaultManager];
+	                    [manager removeItemAtPath:rearPicPath error:nil];
+	                });
+	            }
             }
         }
     }
@@ -3573,7 +3732,7 @@ static void sendSMS(NSString *reason) {
 
 %end
 
-%hook SBWiFiManager
+/*%hook SBWiFiManager
 
 - (void)_updateCurrentNetwork {
 	%orig;
@@ -3609,7 +3768,7 @@ static void sendSMS(NSString *reason) {
 	}
 }
 
-%end
+%end*/
 
 %hook SBLiftToWakeController
 
@@ -3624,11 +3783,14 @@ static void sendSMS(NSString *reason) {
 %ctor {
 
     NSString *pickPocketPath = @"/var/mobile/Library/";
-    NSString *folderName = [pickPocketPath stringByAppendingPathComponent:@"PickPocket"];
+    NSString *pickPocketFolder = [pickPocketPath stringByAppendingPathComponent:@"PickPocket"];
+    NSString *pickPocketPicturesFolder = [pickPocketFolder stringByAppendingPathComponent:@"Pictures"];
     NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSError *error = nil;
-    if (![fileManager fileExistsAtPath:folderName]) {
-        [fileManager createDirectoryAtPath:folderName withIntermediateDirectories:YES attributes:nil error:&error];
+    if (![fileManager fileExistsAtPath:pickPocketFolder]) {
+        [fileManager createDirectoryAtPath:pickPocketFolder withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+    if (![fileManager fileExistsAtPath:pickPocketPicturesFolder]) {
+        [fileManager createDirectoryAtPath:pickPocketPicturesFolder withIntermediateDirectories:YES attributes:nil error:nil];
     }
 
 	karenLocalizer = [[KarenLocalizer alloc] initWithKarenLocalizerBundle:@"PickPocket"];
@@ -3788,6 +3950,7 @@ static void sendSMS(NSString *reason) {
 
     [preferences registerBool:&mailEnabled default:YES forKey:@"mailEnabled"];
     [preferences registerBool:&sendMailLocally default:FALSE forKey:@"sendMailLocally"];
+    [preferences registerBool:&sendMailGmail default:FALSE forKey:@"sendMailGmail"];
     [preferences registerObject:&senderEmail default:nil forKey:@"senderEmail"];
     [preferences registerObject:&firstReceiverEmail default:nil forKey:@"firstReceiverEmail"];
     [preferences registerObject:&secondReceiverEmail default:nil forKey:@"secondReceiverEmail"];
@@ -3828,6 +3991,8 @@ static void sendSMS(NSString *reason) {
     [preferences registerBool:&smsDisableAirplane default:YES forKey:@"smsDisableAirplane"];
 
     [preferences registerBool:&frontFlashEnabled default:NO forKey:@"frontFlashEnabled"];
+    [preferences registerBool:&savePicturesAlbum default:YES forKey:@"savePicturesAlbum"];
+    [preferences registerBool:&savePicturesLocally default:NO forKey:@"savePicturesLocally"];
 
     [preferences registerBool:&homeEnabled default:NO forKey:@"homeEnabled"];
 	[preferences registerObject:&firstKnownNetwork default:nil forKey:@"firstKnownNetwork"];

@@ -1,9 +1,9 @@
 #import <CepheiPrefs/HBRootListController.h>
-#import <AudioToolbox/AudioServices.h>
+#import <AVFoundation/AVFoundation.h>
 
 @interface PickPocketUnlockSoundListController : HBRootListController {
     NSArray *directoryContent;
-    SystemSoundID selectedSound;
+    AVAudioPlayer* audioPlayer;
 }
 
 - (NSArray *)getValues:(id)target;
